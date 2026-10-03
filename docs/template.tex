@@ -1,0 +1,185 @@
+% Plantilla de pandoc para el manual de NABU Setup (XeLaTeX o LuaLaTeX).
+% Pandoc template for the NABU Setup manual (XeLaTeX or LuaLaTeX).
+%
+% Los datos de la portada salen del encabezado YAML de cada manual.md.
+% The title page data comes from the YAML header of each manual.md.
+\documentclass[11pt,$papersize$paper]{article}
+
+\usepackage{iftex}
+\usepackage[$babel$]{babel}
+\usepackage[$papersize$paper,left=27mm,right=27mm,top=27mm,bottom=30mm,headheight=14pt]{geometry}
+
+% --- Tipografía / Fonts (todas vienen con TeX Live / all ship with TeX Live) --
+\usepackage{fontspec}
+\setmainfont{texgyrepagella}[Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
+  ItalicFont=*-italic, BoldItalicFont=*-bolditalic]
+\setsansfont{texgyreheros}[Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
+  ItalicFont=*-italic, BoldItalicFont=*-bolditalic, Scale=0.94]
+\IfFontExistsTF{DejaVu Sans Mono}
+  {\setmonofont{DejaVu Sans Mono}[Scale=0.84]}
+  {\setmonofont{lmmonolt10}[Extension=.otf, UprightFont=*-regular, BoldFont=*-bold,
+    ItalicFont=*-oblique, Scale=0.95]}
+\usepackage{microtype}
+\linespread{1.06}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+\setlength{\emergencystretch}{3em}
+
+% --- Colores / Colors --------------------------------------------------------
+\usepackage{xcolor}
+\definecolor{nabu}{HTML}{12356B}
+\definecolor{nabutint}{HTML}{EDF2FA}
+\definecolor{codebg}{HTML}{F4F5F7}
+\definecolor{muted}{HTML}{5B6678}
+\definecolor{rule}{HTML}{C5CCD8}
+
+% --- Títulos / Headings ------------------------------------------------------
+\usepackage{titlesec}
+\titleformat{\section}{\sffamily\bfseries\LARGE\color{nabu}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\sffamily\bfseries\large\color{nabu}}{\thesubsection}{0.7em}{}
+\titleformat{\subsubsection}{\sffamily\bfseries\normalsize}{}{0pt}{}
+\titlespacing*{\section}{0pt}{26pt plus 6pt}{10pt}
+\titlespacing*{\subsection}{0pt}{18pt plus 4pt}{6pt}
+\titlespacing*{\subsubsection}{0pt}{12pt plus 3pt}{3pt}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{2}
+% Evita títulos solos al pie de la página / Keeps headings off the page bottom
+\usepackage{needspace}
+\usepackage{etoolbox}
+\pretocmd{\section}{\needspace{9\baselineskip}}{}{}
+\pretocmd{\subsection}{\needspace{6\baselineskip}}{}{}
+
+% --- Encabezado y pie / Header and footer ------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\sectionmark}[1]{\markboth{#1}{}}
+\fancyhead[L]{\sffamily\footnotesize\color{muted}$title$ · $subtitle$}
+\fancyhead[R]{\sffamily\footnotesize\color{muted}\nouppercase{\leftmark}}
+\fancyfoot[L]{\sffamily\footnotesize\color{muted}$footer$}
+\fancyfoot[R]{\sffamily\footnotesize\color{muted}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{{\color{rule}\hrule width\headwidth height\headrulewidth}}
+
+% --- Listas / Lists ----------------------------------------------------------
+\usepackage{enumitem}
+\setlist{topsep=3pt, itemsep=2pt, parsep=2pt, leftmargin=1.6em}
+\providecommand{\tightlist}{\setlength{\itemsep}{1pt}\setlength{\parskip}{0pt}}
+
+% --- Tablas / Tables ---------------------------------------------------------
+\usepackage{longtable,booktabs,array}
+\usepackage{calc}
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\renewcommand{\arraystretch}{1.25}
+\AtBeginEnvironment{longtable}{\small}
+% Evita cortar una tabla a las pocas filas / Avoids splitting a table after a few rows
+\usepackage{needspace}
+\BeforeBeginEnvironment{longtable}{\needspace{11\baselineskip}}
+\setlength{\LTpre}{8pt}
+\setlength{\LTpost}{10pt}
+
+% --- Figuras / Figures -------------------------------------------------------
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+% Versiones recientes de pandoc envuelven las imágenes en \pandocbounded
+% Recent pandoc releases wrap images in \pandocbounded
+\newsavebox\pandoc@box
+\providecommand*\pandocbounded[1]{%
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi}
+\makeatother
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\usepackage{float}
+\floatplacement{figure}{H}
+\usepackage[font={small,sf},labelfont={bf},labelsep=period,skip=6pt,
+  justification=centering]{caption}
+
+% --- Código y avisos / Code and callouts -------------------------------------
+\usepackage{fvextra}
+\usepackage[most]{tcolorbox}
+\RecustomVerbatimEnvironment{verbatim}{Verbatim}{fontsize=\footnotesize, breaklines,
+  breakanywhere, baselinestretch=1.0}
+\BeforeBeginEnvironment{verbatim}{\begin{tcolorbox}[breakable, enhanced, frame hidden,
+  boxrule=0pt, arc=3pt, colback=codebg, left=8pt, right=8pt, top=4pt, bottom=4pt,
+  before skip=8pt, after skip=10pt]}
+\AfterEndEnvironment{verbatim}{\end{tcolorbox}}
+% Las citas (>) del Markdown se muestran como avisos
+% Markdown block quotes (>) are shown as callouts
+\renewenvironment{quote}{\begin{tcolorbox}[breakable, enhanced, frame hidden,
+  boxrule=0pt, sharp corners, colback=nabutint, borderline west={3pt}{0pt}{nabu},
+  left=12pt, right=10pt, top=5pt, bottom=5pt, before skip=10pt, after skip=10pt]}
+  {\end{tcolorbox}}
+
+% --- Enlaces / Links ---------------------------------------------------------
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{}
+\usepackage[unicode]{hyperref}
+\hypersetup{
+  pdftitle={$title$ — $subtitle$},
+  pdfauthor={$publisher$},
+  pdfsubject={$title$ $script-version$},
+  pdflang={$lang$},
+  colorlinks=true, linkcolor=nabu, urlcolor=nabu, citecolor=nabu,
+  pdfcreator={pandoc}}
+\urlstyle{same}
+
+$for(header-includes)$
+$header-includes$
+$endfor$
+
+\begin{document}
+
+% ============================ Portada / Title page ============================
+\begin{titlepage}
+\begin{tikzpicture}[remember picture, overlay]
+  % Tira perforada de papel continuo / Continuous-paper sprocket strip
+  \fill[nabu] (current page.north west) rectangle ([xshift=17mm]current page.south west);
+  \foreach \i in {0,...,23} {
+    \fill[white] ([xshift=8.5mm, yshift=-8mm-\i*12.7mm]current page.north west) circle (2mm);
+  }
+\end{tikzpicture}
+\sffamily
+\vspace*{18mm}
+{\footnotesize\color{muted}\addfontfeatures{LetterSpace=8.0}\MakeUppercase{$publisher$}\par}
+\vspace{44mm}
+{\fontsize{46}{50}\selectfont\bfseries\color{nabu}$title$\par}
+\vspace{5mm}
+{\fontsize{22}{26}\selectfont $subtitle$\par}
+\vspace{9mm}
+{\color{nabu}\rule{38mm}{2.2pt}\par}
+\vspace{9mm}
+\begin{minipage}{0.82\textwidth}\raggedright\large\color{muted}
+$description$
+\end{minipage}
+\vfill
+{\normalsize
+\renewcommand{\arraystretch}{1.45}
+\begin{tabular}{@{}>{\color{muted}}l@{\hspace{2em}}l@{}}
+$labels.script$ & \textbf{$script-version$} ($script-date$) \\
+$labels.revision$ & \textbf{$manual-revision$} \\
+$labels.date$ & $date$ \\
+$labels.repo$ & \url{$repo$} \\
+$labels.channel$ & \url{$channel$} \\
+\end{tabular}\par}
+\vspace{6mm}
+\end{titlepage}
+
+% ================================== Índice ====================================
+{\hypersetup{linkcolor=black}\setlength{\parskip}{0pt}
+\tableofcontents}
+\clearpage
+
+$body$
+
+\end{document}

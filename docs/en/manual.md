@@ -1,0 +1,754 @@
+---
+title: "NABU Setup"
+subtitle: "User Manual"
+description: "How to turn a Raspberry Pi into a server for the NABU computer: step-by-step installation, administration command, web panel, backups, and virtual printer."
+lang: en-US
+babel: "american"
+papersize: letter
+publisher: "Retro Informática Paraguay"
+script-version: "1.0.0"
+script-date: "2026-10-03"
+manual-revision: "1"
+date: "October 3, 2026"
+repo: "https://github.com/czayas/nabu-setup"
+channel: "https://www.youtube.com/@retroinfopy"
+footer: "NABU Setup 1.0.0 · Manual, revision 1"
+labels:
+  script: "NABU Setup version"
+  revision: "Manual revision"
+  date: "Release date"
+  repo: "Repository"
+  channel: "Channel"
+---
+
+# Introduction
+
+## What NABU Setup is
+
+NABU Setup is an installation script that turns a Raspberry Pi into a small server for the NABU computer. You run it once, it takes a few minutes, and it leaves everything in place for the NABU to load programs the way it did in 1983, only from the Internet.
+
+This is what it installs:
+
+- **The NABU Internet Adapter**, the program that serves the NABU. It runs as a system service: it starts on its own when the Pi boots, and it restarts if it closes.
+- **The `nabu` command**, for managing the server from an SSH terminal.
+- **A password-protected web panel**, for checking and controlling the server from a browser on a computer or a phone.
+- **A virtual printer**: whatever the NABU sends to the printer from CP/M becomes a PDF that looks like continuous paper.
+- **Backups**, as .zip files, of your CP/M files and of the settings.
+
+![The parts of a NABU server installed with NABU Setup.](../img/architecture-en.png)
+
+NABU Setup is an independent project by Retro Informática Paraguay. It neither replaces nor modifies the NABU Internet Adapter: it downloads it from the official site and gets it ready to use. It is not affiliated with nabu.ca or with the author of the Internet Adapter.
+
+This manual covers NABU Setup 1.0.0, English edition (`nabu-setup-en.sh`). The script and the manual are also published in Spanish.
+
+## The NABU Personal Computer
+
+The NABU PC is a Canadian home computer from 1983. Inside, it looks a lot like other machines of its day:
+
+| Component | Details |
+|---|---|
+| Processor | Zilog Z80A at 3.58 MHz |
+| Memory | 64 KB of RAM |
+| Video | Texas Instruments TMS9918A, with 16 KB of its own memory |
+| Sound | General Instrument AY-3-8910 |
+
+That is the same processor, and the same video and sound chips, that the MSX standard uses, which is why so many MSX games have been ported to the NABU.
+
+What set it apart is what it lacked: it had neither a disk drive nor a cassette interface. The NABU was designed to load all of its programs from a network, through an adapter connected to the cable TV line.
+
+## A short history of the NABU Network
+
+NABU stands for *Natural Access to Bidirectional Utilities*, and it is also the name of the Babylonian god of wisdom and writing. The company was started in Ottawa, Canada, by entrepreneur John Kelly, around an idea well ahead of its time: delivering programs, games, news, and services to home computers over the cable television network.
+
+The computers began shipping at the end of May 1983, and the NABU Network launched in Ottawa in October of that year, first for Ottawa Cablevision subscribers and, from early 1984, for Skyline Cablevision subscribers as well. The computer cost 950 Canadian dollars, or rented for 19.95 a month; the basic network service cost 9.95 a month.
+
+The adapter received data on a cable channel at 6.312 Mbps, a huge speed for the time. The network broadcast every program one after another, in a cycle that repeated endlessly, and the NABU picked out of the cycle the program the user had chosen. That is where the name *cycles* comes from, which the community now uses for the collections of original programs.
+
+In the spring of 1984 the network reached Alexandria, Virginia. By the end of that year it had about 1,500 subscribers in Ottawa and 700 in Alexandria, far short of what it needed to sustain itself. In November 1984 its main investor, Campeau Corporation, stopped funding it. A successor company kept the service running in Ottawa until August 1986.
+
+## The 2022 comeback and the community
+
+The NABU was all but forgotten for more than thirty years. It came back thanks to a find: James Pellegrini had bought some 2,200 NABU computers when the company was liquidated, and kept them for decades, in their original boxes, in a barn in Massachusetts. In 2022 he put them up for sale on eBay at $59.99.
+
+In November of that year, videos by DJ Sures (on the 22nd) and by Adrian Black of Adrian's Digital Basement (on the 26th) led thousands of hobbyists to buy one. A problem showed up right away: without the original network, a NABU cannot load anything. The community solved it within weeks:
+
+- **Leo Binkowski**, who had been a NABU programmer in the 1980s, contributed the original programs he had kept, including the 1984 cycles.
+- **DJ Sures** released the NABU Internet Adapter, a program that stands in for the original network, and later Cloud CP/M, RetroNET, and a long list of new programs.
+- Other hobbyists developed emulators, alternative servers, expansion cards, and new games.
+
+Today the community gathers mostly in these places:
+
+| Site | What it offers |
+|---|---|
+| [nabu.ca](https://nabu.ca) | DJ Sures's site: Internet Adapter, Cloud CP/M, RetroNET, tutorials, forums (forums.nabu.ca), and access to the Discord server |
+| [nabunetwork.com](https://www.nabunetwork.com) | News, historical archive, and a serial number registry |
+| [York University Computer Museum](https://museum.eecs.yorku.ca) | Canadian museum that preserves the historical NABU collection |
+| [GitHub](https://github.com/DJSures/NABU-Internet-Adapter) | The Internet Adapter's issue tracker and many community projects, such as the alternative server `nabud` |
+
+## The NABU Internet Adapter
+
+The NABU Internet Adapter, which this manual calls the *IA*, is a program by DJ Sures that emulates the NABU Network servers and the original network adapter. The NABU connects over an RS-422 cable to the computer running the IA, and the IA hands it the programs it asks for.
+
+With the IA, a NABU can use:
+
+- the original NABU Network cycles;
+- channels with new programs and games made by the community;
+- **Cloud CP/M**, a version of CP/M 2.2 that keeps its disks on the server instead of using floppy drives;
+- **RetroNET**, with chat, telnet, and file storage.
+
+The IA is available for Windows, Linux, and macOS. On Linux it has a menu-driven text interface, which is the one NABU Setup uses. The script always downloads the latest release from `cloud.nabu.ca`.
+
+# Requirements
+
+## Hardware
+
+| Component | Minimum | Notes |
+|---|---|---|
+| Raspberry Pi | Any model with an ARMv7 or ARMv8 processor: Pi 2, 3, 4, 5, or Zero 2 W | The Pi 1, Zero, and Zero W will not work: their ARMv6 processor cannot run the IA |
+| Memory | 512 MB | That is the memory of the model used for testing |
+| microSD card | 8 GB | 16 GB or more is recommended |
+| Power supply | The official one for your model | For a Pi 3, 5 V and 2.5 A. A weak supply causes USB failures |
+| USB to RS-422 adapter | One | nabu.ca recommends the DTech brand |
+| Cable to the NABU | One, with a 5-pin DIN connector | Built by following the *Make NABU Cable* page at nabu.ca |
+| Network | Wi-Fi or Ethernet, with Internet access | For installing and for using the cloud programs |
+| Another computer or a phone | With an SSH client and a browser | For installing and managing the server |
+
+And, of course, a NABU PC connected to a TV or monitor.
+
+> **Important.** NABU Setup 1.0.0 was tested on a Raspberry Pi 3 Model A+ (512 MB) running 64-bit Raspberry Pi OS Lite. It should work the same way on the other compatible models, but that has not been tested.
+
+## Software
+
+- **Raspberry Pi OS Lite**, the version without a desktop. The 64-bit version is recommended; the script also recognizes the 32-bit one.
+- **Raspberry Pi Imager**, on your computer, to write the microSD card.
+- An **SSH** client. Linux, macOS, and Windows already include the `ssh` command. On Android you can use Termux.
+
+The script installs everything else it needs on its own: `tmux`, `unzip`, `wget`, and `python3`. It uses no Python libraries beyond the ones that ship with the system.
+
+## About the cable
+
+The cable between the RS-422 adapter and the NABU is the most delicate part of the build. These are nabu.ca's recommendations:
+
+- Keep the RS-422 run as short as possible. If you need distance, extend the USB side.
+- Use twisted-pair cable, such as Ethernet cable: one pair for transmit and one for receive.
+- Connect the shield to ground at one end only.
+- Keep it away from power cords.
+
+The wiring diagram is at <https://nabu.ca/Make-NABU-Cable>.
+
+# Preparing the Raspberry Pi
+
+## Writing the system to the card
+
+1. Install **Raspberry Pi Imager** on your computer and open it.
+2. Choose your Raspberry Pi model.
+3. For the operating system, choose **Raspberry Pi OS Lite (64-bit)**. It is in the *Raspberry Pi OS (other)* group.
+4. Choose the microSD card as the target.
+5. When the program offers to customize the installation, accept and fill in the following:
+   - **Hostname:** `nabu`. That way the server will answer at `nabu.local`.
+   - **Username and password:** the ones for your account on the Pi. The examples in this manual use the user `nabu`.
+   - **Wi-Fi:** your network's name and password, and your country.
+   - **Time zone and keyboard:** the ones for your region.
+   - **SSH:** enabled.
+6. Write the card.
+
+> **Note.** The exact names of these options vary a little between Raspberry Pi Imager releases, but the information you need to fill in is always the same.
+
+## First boot
+
+1. Insert the card into the Pi.
+2. Plug the RS-422 adapter into a USB port.
+3. Connect the power supply. The first boot takes a couple of minutes.
+4. On your computer, open a terminal and connect:
+
+```
+ssh nabu@nabu.local
+```
+
+If `nabu.local` does not respond, look up the Pi's IP address in your router's device list and use that instead, for example `ssh nabu@192.168.0.50`.
+
+## Updating the system
+
+Once you are on the Pi, update the packages and reboot:
+
+```
+sudo apt update && sudo apt full-upgrade -y
+sudo reboot
+```
+
+Connect over SSH again once the Pi has finished booting.
+
+## Checking the RS-422 adapter
+
+```
+ls /dev/ttyUSB*
+```
+
+You should see `/dev/ttyUSB0`. If the command says there is no such file, check that the adapter is plugged in properly.
+
+# Installing NABU Setup
+
+## Downloading the script
+
+On the Pi, download the English edition from the repository:
+
+```
+wget https://raw.githubusercontent.com/czayas/nabu-setup/main/nabu-setup-en.sh
+```
+
+To check which version you downloaded:
+
+```
+bash nabu-setup-en.sh --version
+```
+
+## Running the script
+
+```
+bash nabu-setup-en.sh
+```
+
+Run it as your regular user, without `sudo`. The script asks for administrator rights only in the steps that need them.
+
+The first thing it does is ask you for a **password for the web panel**. Type it twice; it is not shown on screen. The panel user is always `nabu`, even if your user on the Pi is a different one.
+
+After that it works on its own. You will see something like this:
+
+```
+NABU Setup 1.0.0 (2026-10-03)
+
+Password for the web panel (user: nabu):
+Type it again:
+==> Installing packages
+==> Giving nabu access to the serial port and the system log
+==> Downloading the Internet Adapter (linux-arm64.zip)
+    Program: /home/nabu/nabu/NABU-Internet-Adapter-84
+==> Linking libdl.so in the IA's folder
+==> tmux configuration for the IA
+==> Saving /etc/nabu-ia.conf
+==> Creating the nabu-ia systemd service
+==> Allowing the service to be controlled without a password (for the web panel)
+==> Installing the administration command: nabu
+==> Installing the backup tool
+==> Installing the virtual printer (LST.TXT to PDF)
+==> Saving the panel password (only its PBKDF2 hash)
+==> Installing the web panel
+==> Creating the nabu-web systemd service
+==> Creating the nabu-print systemd service
+
+Installation complete. Reboot the Pi so the new permissions take effect:
+    sudo reboot
+```
+
+When it finishes, reboot the Pi:
+
+```
+sudo reboot
+```
+
+The reboot is needed the first time so that your user can use the serial port.
+
+## Configuring the Internet Adapter
+
+You do this step only once. Connect over SSH again and open the IA's interface:
+
+```
+nabu
+```
+
+> **Important.** Your terminal window must be at least 100 columns by 36 rows. If it is smaller, the IA's interface is drawn incorrectly. Enlarge the window or reduce the font size.
+
+Inside the IA you move around with the arrow keys and Tab, toggle checkboxes with the space bar, and confirm with Enter. You can also use the mouse.
+
+1. Go to **\[ Settings \]**.
+2. On the **Serial** tab, type `/dev/ttyUSB0` as the port. Leave the baud rate at its original value, 111861.
+3. Look through the Settings tabs for the checkbox **Start NABU serial listener when loaded (NABU over usb rs422)** and check it. With that, the IA opens the serial port on its own every time it starts.
+4. Save with **\[ Save \]**.
+5. Leave the interface **without closing the IA**: press Ctrl-b, then the d key.
+
+> **Note.** The IA's interface belongs to the Internet Adapter, not to NABU Setup, and may change from one release to the next. The names in this section are the ones in release 2026.05.
+
+For the settings to take effect, restart the IA:
+
+```
+nabu restart
+```
+
+## Turning on the NABU
+
+With the cable connected and the IA running, turn on the NABU. As it starts, it requests its program over the cable, and the IA sends it.
+
+- If the IA has the *headless* menu enabled, as it was in the test installation, the NABU shows the RETRONET menu and you choose what to load from its own keyboard.
+- If you turn that off in Settings, the NABU directly loads whichever channel is selected in the IA's list.
+
+To get back to the menu from any program, press the NABU's RESET button.
+
+## Verifying the installation
+
+```
+nabu status
+```
+
+If the service shows as active, `/dev/ttyUSB0` is listed, and the power supply reads OK, the server is ready. Also open `http://nabu.local` in a browser to check the web panel.
+
+# The `nabu` command
+
+The whole server is managed with a single command.
+
+| Command | What it does |
+|---|---|
+| `nabu` | Opens the Internet Adapter's interface |
+| `nabu status` | Shows the server status |
+| `nabu list` | Shows the service log and the IA's errors |
+| `nabu start` | Starts the IA |
+| `nabu stop` | Stops the IA |
+| `nabu restart` | Restarts the IA |
+| `nabu backup` | Creates a backup |
+| `nabu update` | Updates the IA to the latest release |
+| `nabu version` | Shows the NABU Setup version and release date |
+| `nabu help` | Shows the help |
+
+## `nabu`: opening the IA's interface
+
+With no arguments, the command takes you to the IA's screen, which keeps running even when nobody is looking at it. From there you choose channels, change settings, and watch what the NABU is asking the server for.
+
+To leave, press **Ctrl-b** and then **d**. The blue bar at the bottom of the screen reminds you. The IA keeps running.
+
+> **Note.** Do not leave with the IA's \[ Exit \] button: that closes the program. It is not serious, because the service starts it again five seconds later, but the NABU loses its connection in the meantime.
+
+If the IA is stopped, the command says so:
+
+```
+The Internet Adapter is not running. Try: nabu start
+```
+
+## `nabu status`: server status
+
+```
+nabu status
+```
+
+Sample output:
+
+```
+● nabu-ia.service - NABU Internet Adapter (in a tmux session)
+     Loaded: loaded (/etc/systemd/system/nabu-ia.service; enabled; ...)
+     Active: active (running) since Sat 2026-10-03 09:12:41 -03; 5h ago
+
+crw-rw---- 1 root dialout 188, 0 Oct  3 09:12 /dev/ttyUSB0
+Virtual printer: running (printouts in ~/nabu/printer: 4)
+temp=47.2'C
+Power supply: OK
+```
+
+| Line | What it tells you |
+|---|---|
+| `Active:` | Whether the IA is running (`active`), stopped (`inactive`), or failed (`failed`) |
+| `/dev/ttyUSB0` | That the RS-422 adapter is plugged in. If it is missing, it reads `RS422 adapter: NOT detected` |
+| `Virtual printer` | Whether the print service is running and how many PDFs are stored |
+| `temp=` | The processor temperature |
+| `Power supply` | `OK`, or `PROBLEMS` if the Pi has detected undervoltage or overheating since it booted |
+
+## `nabu list`: log and errors
+
+```
+nabu list
+```
+
+It shows the last 30 lines of the service log and, if there are any, the last 20 lines of `~/nabu/ia-error.log`, the file that collects the errors the IA writes. It is the first place to look when the IA will not start.
+
+## `nabu start`, `nabu stop`, and `nabu restart`
+
+They start, stop, and restart the IA. While the IA is stopped, the NABU cannot load programs. The web panel and the virtual printer are separate services and keep running.
+
+## `nabu backup`: creating a backup
+
+```
+nabu backup
+```
+
+```
+Backup created: /home/nabu/backups/nabu-backup-2026-10-03-1811.zip (412 files, 5230 KB)
+Backups kept in /home/nabu/backups: 3 (maximum 5)
+```
+
+What backups contain and how to restore them is explained in the [Backups](#backups) section.
+
+## `nabu update`: updating the IA
+
+```
+nabu update
+```
+
+It downloads the latest IA release, creates a backup, stops the IA, installs the new release over the old one, and starts it again. Your files, your settings, and the printouts folder are left untouched.
+
+## `nabu version` and `nabu help`
+
+```
+nabu version
+```
+
+```
+NABU Setup 1.0.0 (2026-10-03)
+https://github.com/czayas/nabu-setup
+```
+
+It shows the installed NABU Setup version and its release date. `nabu help` shows the list of commands, the web panel's address, and the printouts folder.
+
+# The web panel
+
+The panel lets you control the server without opening a terminal. It is designed for a phone screen, but it works in any browser.
+
+## Signing in
+
+Open `http://nabu.local` in a browser. If that address does not respond, use the Pi's IP address. The browser asks for a username and password: the user is `nabu`, and the password is the one you chose during installation.
+
+![The web panel on a phone screen. Screenshot taken in a test environment.](../img/panel-en.png)
+
+## Status indicators
+
+The first card sums up the state of the server and refreshes every ten seconds. Green means everything is fine.
+
+| Indicator | What it shows |
+|---|---|
+| Internet Adapter | Running, Starting, Stopped, or Failed |
+| RS422 adapter | The detected port (`ttyUSB0`), or *Not detected* |
+| Temperature | The processor's. It turns yellow from 70 °C (158 °F) and red from 80 °C (176 °F) |
+| Power | OK, or *Problems* if the Pi has detected undervoltage |
+
+## Buttons
+
+- **Restart** restarts the IA.
+- **Stop** stops it, after asking for confirmation. While the IA is stopped, the same button reads **Start**.
+- **Backup** creates a backup and downloads it to the device you are using the panel from.
+- **Update IA** does the same as `nabu update`. It may take a few minutes; when it finishes, the panel shows the result.
+
+## Printouts
+
+This lists the virtual printer's printouts, newest first, with the date, time, page count, and size. Tap one and the PDF opens in another tab. The panel shows the 50 most recent; older ones remain in the `~/nabu/printer` folder.
+
+## Screen and Log
+
+- **Screen** shows, as text, what is on the IA's interface at that moment. It refreshes every five seconds. It is for watching, not for operating the IA: that is what the `nabu` command is for.
+- **Log** shows the same as `nabu list`.
+- The **↻** button refreshes the view right away.
+
+The NABU Setup version and release date appear at the bottom of the panel.
+
+## Changing the password
+
+Run the installation script again. When it asks whether you want to change the password, answer `y`:
+
+```
+bash nabu-setup-en.sh
+The web panel already has a password. Change it? [y/N] y
+```
+
+## Security
+
+The panel uses unencrypted HTTP. It is meant for your home network.
+
+- Do not expose it to the Internet: do not open or forward port 80 on your router.
+- Choose a password you do not use anywhere else.
+- The password is not stored on the Pi. Only its hash, computed with PBKDF2-SHA256, is kept in `/etc/nabu-web.conf`.
+
+# The virtual printer
+
+Cloud CP/M has a printer device, `LST:`. The IA saves whatever the NABU sends to that device in a text file called `LST.TXT`. NABU Setup's virtual printer watches that file and turns each print job into a PDF that looks like a sheet of continuous paper fresh out of a dot-matrix printer.
+
+![Part of a page produced by the virtual printer.](../img/printout-en.png)
+
+## How it works
+
+1. A program on the NABU prints to `LST:`.
+2. The IA appends that text to the end of `LST.TXT`, inside its `Store` folder.
+3. Once five seconds go by with no new text, the virtual printer considers the print job finished.
+4. It creates a PDF in `~/nabu/printer` with the date and time in its name, for example `print-2026-10-03-094107.pdf`.
+5. The printout appears in the *Printouts* section of the web panel.
+
+The printer never modifies `LST.TXT`: it only remembers how far it has read.
+
+## First test: LPRINT
+
+On the NABU, load Cloud CP/M and run the BASIC interpreter:
+
+```
+MBASIC
+```
+
+Inside BASIC, type:
+
+```
+LPRINT "HELLO FROM THE NABU"
+SYSTEM
+```
+
+`LPRINT` sends the text to the printer, and `SYSTEM` returns to CP/M. Wait a few seconds and open the web panel: the printout is at the top of the list.
+
+## Printing a program listing
+
+In MBASIC, `LLIST` prints the program currently loaded:
+
+```
+LOAD "PROGRAM"
+LLIST
+```
+
+It also accepts a range of lines, for example `LLIST 100-200`.
+
+## Printing a text file
+
+From CP/M, the `PIP` command copies a file to the printer device:
+
+```
+PIP LST:=LETTER.TXT
+```
+
+It works with any text file, even one on another drive: `PIP LST:=D:DIR.DIR`.
+
+> **Note.** Cloud CP/M does not support the Ctrl-P key combination, which in other versions of CP/M echoes everything shown on screen to the printer.
+
+## What the printer understands
+
+The page is 80 columns by 66 lines, like an 11-inch sheet at 10 characters per inch. Longer lines wrap onto the next line.
+
+| What the program sends | Result |
+|---|---|
+| ASCII text, from space to `~` | Printed as is |
+| Carriage return, line feed, form feed | Honored |
+| Tab | Moves to the next column that is a multiple of 8 |
+| Backspace | Moves back one column, to print on top |
+| `ESC E` and `ESC F` (or `ESC G` and `ESC H`) | Turn bold on and off |
+| `ESC - 1` and `ESC - 0` | Turn underline on and off |
+| `ESC @` | Resets the printer |
+| Other Epson control codes | Discarded without cluttering the page |
+
+It also recognizes **overstriking**, the technique word processors such as WordStar use on simple printers: they return to the start of the line and print on top of it. The same text twice comes out bold; underscores, underlined; hyphens, struck out.
+
+> **Important.** Overstriking was tested with simulated data. Printing from WordStar on a real NABU has not been verified yet.
+
+Accented letters do not exist in the printer's character set, which is 7-bit ASCII.
+
+## Where the PDFs are kept
+
+In the `~/nabu/printer` folder on the Pi. Besides opening them from the panel, you can copy them to your computer:
+
+```
+scp "nabu@nabu.local:nabu/printer/*.pdf" .
+```
+
+There are three things worth knowing about this folder:
+
+- **It is not included in backups**, so they stay small.
+- **It is not deleted when you update** the IA or reinstall NABU Setup.
+- **It does not clean itself up.** To remove old printouts, delete the files; for example, the ones from September 2026:
+
+```
+rm ~/nabu/printer/print-2026-09-*.pdf
+```
+
+## Settings
+
+The options are at the top of the file `/usr/local/lib/nabu/nabu-print.py`:
+
+| Option | Original value | What it is for |
+|---|---|---|
+| `WAIT` | `5` | Seconds without new text before a print job is considered finished |
+| `PAPER` | `True` | With `False`, the sheet is plain and letter-size, with no bars or sprocket holes |
+| `COLS` | `80` | Columns per line |
+| `LPP` | `66` | Lines per page |
+
+Edit the file with `sudo nano` and restart the service:
+
+```
+sudo systemctl restart nabu-print
+```
+
+> **Note.** When you install a new release of NABU Setup, this file is replaced and the settings go back to their original values.
+
+## Converting a file by hand
+
+The same program converts any text file into a PDF:
+
+```
+python3 /usr/local/lib/nabu/nabu-print.py input.txt output.pdf
+```
+
+# Backups
+
+## What they contain
+
+A backup is a .zip file with your IA data:
+
+- the Cloud CP/M drives, with all of their files;
+- the programs you have added to the *Local Source* folder;
+- the IA's settings.
+
+Left out are the IA program itself, the download cache, the log files, and the virtual printer's PDFs. All of that can be downloaded or generated again.
+
+Backups are saved in `~/backups` with the date and time in their name. The five most recent are kept, and older ones are deleted automatically.
+
+## When they are created
+
+- When you run `nabu backup`.
+- When you press **Backup** on the web panel, which also downloads it to your device.
+- Automatically before every `nabu update`.
+
+NABU Setup does not schedule periodic backups. If you want one a week, add a line with `crontab -e`; this one runs on Sundays at 4 a.m.:
+
+```
+0 4 * * 0 /usr/local/bin/nabu backup
+```
+
+> **Important.** The backups are on the same microSD card as the original data. If the card fails, both are lost. Every so often, download one from the panel or copy it to your computer:
+
+```
+scp "nabu@nabu.local:backups/*.zip" .
+```
+
+## Restoring a backup
+
+Stop the IA, unzip the backup into your home folder, and start it again:
+
+```
+nabu stop
+unzip -o ~/backups/nabu-backup-2026-10-03-1811.zip -d ~
+nabu start
+```
+
+The files in the backup replace the ones with the same name. Newer files that were not in the backup are not deleted.
+
+# Updates
+
+Three things on the server are updated separately.
+
+| What | How | When |
+|---|---|---|
+| The Internet Adapter | `nabu update` or the **Update IA** button | When nabu.ca publishes a new release |
+| NABU Setup | Download the new script and run it | When there is a new release in the repository |
+| The Pi's system | `sudo apt update && sudo apt full-upgrade -y` | Every so often |
+
+## Updating NABU Setup
+
+Download the new release of the script and run it just like the first time:
+
+```
+wget -O nabu-setup-en.sh \
+  https://raw.githubusercontent.com/czayas/nabu-setup/main/nabu-setup-en.sh
+bash nabu-setup-en.sh
+```
+
+When it asks about the panel password, press Enter to keep the one you have. The script replaces the `nabu` command, the panel, the printer, and the backup tool. It does not download the IA again or restart it, and there is no need to reboot the Pi.
+
+Use `nabu version` to check which version ended up installed.
+
+To switch from one language to the other, do the same with the other edition's script, `nabu-setup-es.sh`.
+
+# Troubleshooting
+
+| Symptom | Likely cause and fix |
+|---|---|
+| `nabu` says the IA is not running | Run `nabu start`. If it stops again, check `nabu list` |
+| The IA will not start and the log mentions `Curses.endwin` | The link to `libdl.so` is missing. Run NABU Setup again; it creates it |
+| The IA's interface looks garbled | The terminal window is too small. It needs 100 columns by 36 rows. Enlarge it and run `tmux -L nabu resize-window -t nabu -x 100 -y 35` |
+| `RS422 adapter: NOT detected` | Check the USB connection and run `ls /dev/ttyUSB*` |
+| The IA cannot open `/dev/ttyUSB0` right after installing | The Pi still needs a reboot so your user gets access to the serial port |
+| The NABU does not load anything | Use `nabu status` to confirm the IA is running, check the port and the *serial listener* checkbox in Settings, and check the cable |
+| The NABU hangs partway through a load | It is almost always the cable: shorten the RS-422 run and keep it away from power cords |
+| `nabu.local` does not respond | Use the Pi's IP address. You can find it on your router or, on the Pi, with `hostname -I` |
+| The panel does not accept the password | Run the script again and choose a new one |
+| `Power supply: PROBLEMS` | The power supply is not delivering enough current. Use the official one for your model |
+| The PDF for a print job does not show up | Wait five seconds after printing. Use `nabu status` to confirm the printer is running, and check `journalctl -u nabu-print -n 20` |
+| The script says the processor is ARMv6 | That Pi model cannot run the IA. You need a Pi 2 or later, or a Zero 2 W |
+
+If the problem lies with the Internet Adapter itself or with a NABU program, the places to ask are the nabu.ca forums and Discord.
+
+# Reference
+
+## Files and folders
+
+| Location | Contents |
+|---|---|
+| `~/nabu/` | The Internet Adapter and its data |
+| `~/nabu/NABU Internet Adapter/Store/` | Cloud CP/M drives and `LST.TXT` |
+| `~/nabu/NABU Internet Adapter/Local Source/` | Local programs |
+| `~/nabu/NABU Internet Adapter/Cache/` | Downloads from the cloud |
+| `~/nabu/printer/` | The virtual printer's PDFs |
+| `~/nabu/ia-error.log` | The IA's errors |
+| `~/backups/` | Backups |
+| `/usr/local/bin/nabu` | Administration command |
+| `/usr/local/lib/nabu/` | Web panel, virtual printer, and backup tool |
+| `/etc/nabu-ia.conf` | Paths, plus the NABU Setup version and date |
+| `/etc/nabu-web.conf` | Panel port and password hash |
+| `/etc/sudoers.d/nabu` | Permission to control the IA service without a password |
+
+## Services
+
+| Service | Role |
+|---|---|
+| `nabu-ia` | The Internet Adapter, inside a `tmux` session |
+| `nabu-web` | The web panel, on port 80 |
+| `nabu-print` | The virtual printer |
+
+All three start with the Pi. You can check them with `systemctl status` and read their log with `journalctl -u`, followed by the service name.
+
+## Shutting down the Pi
+
+Before unplugging the power supply, shut the system down so the card is not damaged:
+
+```
+sudo poweroff
+```
+
+## Uninstalling
+
+These commands remove everything NABU Setup installed and leave your data untouched:
+
+```
+sudo systemctl disable --now nabu-ia nabu-web nabu-print
+sudo rm /etc/systemd/system/nabu-ia.service /etc/systemd/system/nabu-web.service
+sudo rm /etc/systemd/system/nabu-print.service /etc/sudoers.d/nabu
+sudo rm /etc/nabu-ia.conf /etc/nabu-web.conf /usr/local/bin/nabu
+sudo rm -r /usr/local/lib/nabu
+sudo systemctl daemon-reload
+```
+
+To also delete the IA, your CP/M files, the printouts, and the backups, remove the `~/nabu` and `~/backups` folders. That part cannot be undone.
+
+# Resources and credits
+
+## Links
+
+- NABU Setup repository: <https://github.com/czayas/nabu-setup>
+- Retro Informática Paraguay on YouTube: <https://www.youtube.com/@retroinfopy>
+- NABU Internet Adapter: <https://nabu.ca/downloads-nabu-internet-adapter>
+- Using a real NABU with the IA: <https://nabu.ca/use-real-nabu-pc-computer-hardware-tutorial>
+- Cloud CP/M: <https://nabu.ca/cloud-cpm>
+- Cable for the NABU: <https://nabu.ca/Make-NABU-Cable>
+
+## Credits
+
+The NABU Internet Adapter, Cloud CP/M, and RetroNET are the work of DJ Sures. NABU Setup only automates their installation on a Raspberry Pi and adds administration tools.
+
+NABU Setup and this manual are a project by Retro Informática Paraguay.
+
+## License
+
+NABU Setup and its documentation are distributed under the BSD 2-Clause License. You may use, modify, and redistribute them, as long as you keep the copyright notice and the license text. The full text is in the repository's `LICENSE` file.
+
+The license covers NABU Setup only. The NABU Internet Adapter is a separate program, with its own terms, which the script downloads from its author's site.
+
+## Sources for the historical overview
+
+- Historical Society of Ottawa, *The NABU Network*: <https://www.historicalsocietyottawa.ca/publications/ottawa-stories/significant-technological-changes-in-the-city/the-nabu-network>
+- York University Computer Museum, *NABU Adaptor*: <https://museum.eecs.yorku.ca/items/show/12>
+- Wikipedia, *NABU Network*: <https://en.wikipedia.org/wiki/NABU_Network>
+- NabuNetwork.com, *A brief history on the 2022 NABU Computer Fever*: <https://www.nabunetwork.com/a-brief-history-on-the-2022-nabu-computer-craze/>
+- Gizmodo, *Why 2,000 NABU PCs appeared on eBay*: <https://gizmodo.com/why-2-000-nabu-pcs-appeared-on-ebay-1850586784>
+- Microsoft Learn, *.NET IoT Libraries*, on the Raspberry Pi models .NET supports: <https://learn.microsoft.com/en-us/dotnet/iot/intro>
+
+# Revision history
+
+| Revision | Date | NABU Setup | Changes |
+|---|---|---|---|
+| 1 | 2026-10-03 | 1.0.0 | First release |
