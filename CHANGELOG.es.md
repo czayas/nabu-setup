@@ -2,7 +2,11 @@
 
 [English](CHANGELOG.md)
 
-NABU Setup y su manual llevan numeraciones separadas. El script usa números de versión (como 1.1.0); el manual usa números de revisión e indica a qué versión del script corresponde.
+NABU Setup y su manual llevan numeraciones separadas. El script usa números de versión (como 1.2.0); el manual usa números de revisión e indica a qué versión del script corresponde.
+
+## NABU Setup 1.2.0 (2026-10-04)
+
+- Nuevo comando `nabu setup`: descarga la última versión publicada de NABU Setup, la compara con la instalada y la instala.
 
 ## NABU Setup 1.1.0 (2026-10-04)
 
@@ -25,5 +29,6 @@ Primera versión publicada.
 
 | Revisión | Fecha | NABU Setup | Cambios |
 |---|---|---|---|
+| 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` |
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: `nabu poweroff` y el botón del panel |
 | 1 | 2026-10-03 | 1.0.0 | Primera publicación |

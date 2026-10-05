@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NABU Setup — a minimal NABU server for Raspberry Pi (Raspberry Pi OS Lite)
-# Version 1.1.0 · released on 2026-10-04 · English edition
+# Version 1.2.0 · released on 2026-10-04 · English edition
 #
 # Retro Informática Paraguay — https://www.youtube.com/@retroinfopy
 # Repository and user manual: https://github.com/czayas/nabu-setup
@@ -29,7 +29,7 @@
 # with the author of the NABU Internet Adapter.
 set -euo pipefail
 
-NABU_SETUP_VERSION="1.1.0"
+NABU_SETUP_VERSION="1.2.0"
 NABU_SETUP_DATE="2026-10-04"
 NABU_SETUP_LANG="en"
 NABU_SETUP_REPO="https://github.com/czayas/nabu-setup"
@@ -228,6 +228,7 @@ Usage: nabu [command]
   nabu backup     Saves a .zip backup of CP/M and the settings to ~/backups
                   (the latest 5 are kept)
   nabu update     Downloads the latest IA release (makes a backup first)
+  nabu setup      Downloads and installs the latest published NABU Setup release
   nabu poweroff   Shuts the Pi down safely; after that you can cut the power
   nabu version    Shows the NABU Setup version and release date
   nabu help       Shows this help
@@ -286,6 +287,34 @@ case "${1:-}" in
     rm -f "$tmp"
     sudo systemctl start nabu-ia
     echo "Done. The Internet Adapter was updated and is running again." ;;
+  setup)
+    lang="${NABU_SETUP_LANG:-en}"
+    url="${NABU_SETUP_REPO/github.com/raw.githubusercontent.com}/main/nabu-setup-$lang.sh"
+    tmp="$(mktemp -d)/nabu-setup-$lang.sh"
+    echo "Downloading $url"
+    if ! wget -q -O "$tmp" "$url"; then
+      echo "The download failed. Check the Pi's Internet connection."
+      exit 1
+    fi
+    # The version is read from the file, without running it
+    want="$(sed -n 's/^NABU_SETUP_VERSION="\(.*\)"$/\1/p' "$tmp" | head -n1)"
+    date="$(sed -n 's/^NABU_SETUP_DATE="\(.*\)"$/\1/p' "$tmp" | head -n1)"
+    if [[ -z "$want" ]]; then
+      echo "The downloaded file is not NABU Setup. Nothing was installed."
+      exit 1
+    fi
+    have="${NABU_SETUP_VERSION:-0}"
+    echo "Installed: $VERSION"
+    echo "Published: NABU Setup $want ($date)"
+    if [[ "$want" == "$have" ]]; then
+      read -rp "You already have the latest version. Install it again? [y/N] " r
+      [[ "${r,,}" == y* ]] || exit 0
+    elif [[ "$(printf '%s\n%s\n' "$want" "$have" | sort -V | tail -n1)" == "$have" ]]; then
+      read -rp "The installed version is newer than the published one. Install the published one? [y/N] " r
+      [[ "${r,,}" == y* ]] || exit 0
+    fi
+    echo
+    exec bash "$tmp" ;;
   poweroff)
     echo "Shutting down the Pi. Wait until the green LED stops blinking before cutting the power."
     exec sudo systemctl poweroff ;;

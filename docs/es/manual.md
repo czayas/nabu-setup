@@ -6,13 +6,13 @@ lang: es
 babel: "spanish,es-tabla,es-noshorthands,es-nolayout"
 papersize: a4
 publisher: "Retro Informática Paraguay"
-script-version: "1.1.0"
+script-version: "1.2.0"
 script-date: "2026-10-04"
-manual-revision: "2"
+manual-revision: "3"
 date: "4 de octubre de 2026"
 repo: "https://github.com/czayas/nabu-setup"
 channel: "https://www.youtube.com/@retroinfopy"
-footer: "NABU Setup 1.1.0 · Manual, revisión 2"
+footer: "NABU Setup 1.2.0 · Manual, revisión 3"
 labels:
   script: "Versión de NABU Setup"
   revision: "Revisión del manual"
@@ -39,7 +39,7 @@ Esto es lo que instala:
 
 NABU Setup es un proyecto independiente de Retro Informática Paraguay. No reemplaza al NABU Internet Adapter ni lo modifica: lo descarga del sitio oficial y lo deja listo para usar. No está afiliado a nabu.ca ni al autor del Internet Adapter.
 
-Este manual corresponde a NABU Setup 1.1.0, edición en español (`nabu-setup-es.sh`). El script y el manual también se publican en inglés.
+Este manual corresponde a NABU Setup 1.2.0, edición en español (`nabu-setup-es.sh`). El script y el manual también se publican en inglés.
 
 ## La NABU Personal Computer
 
@@ -215,7 +215,7 @@ Lo primero que hace es pedirte una **contraseña para el panel web**. Escríbela
 Después trabaja solo. En pantalla verás algo así:
 
 ```
-NABU Setup 1.1.0 (2026-10-04)
+NABU Setup 1.2.0 (2026-10-04)
 
 Contraseña para el panel web (usuario: nabu):
 Repítela:
@@ -305,6 +305,7 @@ Todo el servidor se administra con un solo comando.
 | `nabu restart` | Reinicia el IA |
 | `nabu backup` | Crea un backup |
 | `nabu update` | Actualiza el IA a la última versión |
+| `nabu setup` | Actualiza NABU Setup a la última versión publicada |
 | `nabu poweroff` | Apaga la Pi de forma segura |
 | `nabu version` | Muestra la versión y la fecha de NABU Setup |
 | `nabu help` | Muestra la ayuda |
@@ -383,6 +384,27 @@ nabu update
 
 Descarga la última versión del IA, crea un backup, detiene el IA, instala la versión nueva encima de la anterior y lo vuelve a iniciar. Tus archivos, tu configuración y la carpeta de impresiones no se tocan.
 
+## `nabu setup`: actualizar NABU Setup
+
+```
+nabu setup
+```
+
+Descarga del repositorio la última versión publicada de NABU Setup, en el mismo idioma que la instalada, y muestra las dos versiones:
+
+```
+Descargando https://raw.githubusercontent.com/czayas/nabu-setup/main/nabu-setup-es.sh
+Instalada: NABU Setup 1.2.0 (2026-10-04)
+Publicada: NABU Setup 1.2.0 (2026-10-04)
+Ya tienes la última versión. ¿Instalarla de nuevo? [s/N]
+```
+
+Si ya tienes la última, como en este ejemplo, o si la instalada es más nueva que la publicada, pregunta antes de seguir. Si la publicada es más nueva, ejecuta el instalador sin más preguntas.
+
+El resto es igual a una instalación manual; los detalles están en la sección [Actualizar NABU Setup](#actualizar-nabu-setup).
+
+> **Nota.** No confundas este comando con `nabu update`, que actualiza el Internet Adapter.
+
 ## `nabu poweroff`: apagar la Pi
 
 ```
@@ -400,7 +422,7 @@ nabu version
 ```
 
 ```
-NABU Setup 1.1.0 (2026-10-04)
+NABU Setup 1.2.0 (2026-10-04)
 https://github.com/czayas/nabu-setup
 ```
 
@@ -637,12 +659,24 @@ En el servidor hay tres cosas que se actualizan por separado.
 | Qué | Cómo | Cuándo |
 |---|---|---|
 | El Internet Adapter | `nabu update` o el botón **Actualizar IA** | Cuando nabu.ca publique una versión nueva |
-| NABU Setup | Descarga el script nuevo y ejecútalo | Cuando haya una versión nueva en el repositorio |
+| NABU Setup | `nabu setup` | Cuando haya una versión nueva en el repositorio |
 | El sistema de la Pi | `sudo apt update && sudo apt full-upgrade -y` | Cada tanto |
 
 ## Actualizar NABU Setup
 
-Descarga la versión nueva del script y ejecútala igual que la primera vez:
+```
+nabu setup
+```
+
+El comando descarga la última versión publicada y ejecuta su instalador. Cuando pregunte por la contraseña del panel, pulsa Enter para conservar la que tienes. El instalador reemplaza el comando `nabu`, el panel, la impresora y la herramienta de backup. No vuelve a descargar el IA ni lo reinicia, y no hace falta reiniciar la Pi.
+
+Con `nabu version` compruebas qué versión quedó instalada.
+
+`nabu setup` necesita una terminal, porque el instalador hace preguntas; por eso no tiene un botón en el panel web.
+
+### Actualización manual
+
+El comando `nabu setup` existe desde la versión 1.2.0. Para actualizar una instalación anterior, o para pasar de un idioma a otro, descarga el script y ejecútalo igual que la primera vez:
 
 ```
 wget -O nabu-setup-es.sh \
@@ -650,11 +684,7 @@ wget -O nabu-setup-es.sh \
 bash nabu-setup-es.sh
 ```
 
-Cuando pregunte por la contraseña del panel, pulsa Enter para conservar la que tienes. El script reemplaza el comando `nabu`, el panel, la impresora y la herramienta de backup. No vuelve a descargar el IA ni lo reinicia, y no hace falta reiniciar la Pi.
-
-Con `nabu version` compruebas qué versión quedó instalada.
-
-Para pasar de un idioma a otro se hace lo mismo con el script de la otra edición, `nabu-setup-en.sh`.
+Para cambiar al inglés, usa `nabu-setup-en.sh` en los dos lugares.
 
 # Solución de problemas
 
@@ -771,3 +801,4 @@ La licencia cubre solamente NABU Setup. El NABU Internet Adapter es un programa 
 |---|---|---|---|
 | 1 | 2026-10-03 | 1.0.0 | Primera publicación |
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: comando `nabu poweroff` y botón **Apagar la Pi** en el panel web |
+| 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` para actualizar NABU Setup |

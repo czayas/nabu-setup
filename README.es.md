@@ -4,7 +4,7 @@
 
 NABU Setup es un script de instalación que convierte una Raspberry Pi en un pequeño servidor para la [computadora NABU](https://en.wikipedia.org/wiki/NABU_Network). Descarga el [NABU Internet Adapter](https://nabu.ca/downloads-nabu-internet-adapter) oficial, lo deja funcionando como servicio y agrega las herramientas para administrarlo desde una terminal o desde un teléfono.
 
-Versión actual: **1.1.0**, publicada el 2026-10-04. Consulta el [registro de cambios](CHANGELOG.es.md).
+Versión actual: **1.2.0**, publicada el 2026-10-04. Consulta el [registro de cambios](CHANGELOG.es.md).
 
 ![Componentes de un servidor NABU instalado con NABU Setup](docs/img/architecture-es.png)
 
@@ -36,7 +36,7 @@ bash nabu-setup-es.sh
 sudo reboot
 ```
 
-El script pide una contraseña para el panel web y hace el resto por su cuenta. Se puede volver a ejecutar sin problemas, por ejemplo para cambiar esa contraseña o para instalar una versión más nueva.
+El script pide una contraseña para el panel web y hace el resto por su cuenta. Se puede volver a ejecutar sin problemas, por ejemplo para cambiar esa contraseña. Para instalar más adelante una versión nueva, ejecuta `nabu setup`.
 
 Hay dos ediciones con el mismo código y distinto idioma: `nabu-setup-es.sh` (español) y `nabu-setup-en.sh` (inglés).
 
@@ -50,6 +50,7 @@ Hay dos ediciones con el mismo código y distinto idioma: `nabu-setup-es.sh` (es
 | `nabu start`, `stop`, `restart` | Controlan el Internet Adapter |
 | `nabu backup` | Guarda un backup en `~/backups` |
 | `nabu update` | Actualiza el Internet Adapter, después de hacer un backup |
+| `nabu setup` | Actualiza el propio NABU Setup a la última versión publicada |
 | `nabu poweroff` | Apaga la Pi de forma segura antes de cortar la corriente |
 | `nabu version` | Muestra la versión y la fecha de NABU Setup |
 | `nabu help` | Muestra la ayuda |

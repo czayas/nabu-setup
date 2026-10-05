@@ -6,13 +6,13 @@ lang: en-US
 babel: "american"
 papersize: letter
 publisher: "Retro Informática Paraguay"
-script-version: "1.1.0"
+script-version: "1.2.0"
 script-date: "2026-10-04"
-manual-revision: "2"
+manual-revision: "3"
 date: "October 4, 2026"
 repo: "https://github.com/czayas/nabu-setup"
 channel: "https://www.youtube.com/@retroinfopy"
-footer: "NABU Setup 1.1.0 · Manual, revision 2"
+footer: "NABU Setup 1.2.0 · Manual, revision 3"
 labels:
   script: "NABU Setup version"
   revision: "Manual revision"
@@ -39,7 +39,7 @@ This is what it installs:
 
 NABU Setup is an independent project by Retro Informática Paraguay. It neither replaces nor modifies the NABU Internet Adapter: it downloads it from the official site and gets it ready to use. It is not affiliated with nabu.ca or with the author of the Internet Adapter.
 
-This manual covers NABU Setup 1.1.0, English edition (`nabu-setup-en.sh`). The script and the manual are also published in Spanish.
+This manual covers NABU Setup 1.2.0, English edition (`nabu-setup-en.sh`). The script and the manual are also published in Spanish.
 
 ## The NABU Personal Computer
 
@@ -215,7 +215,7 @@ The first thing it does is ask you for a **password for the web panel**. Type it
 After that it works on its own. You will see something like this:
 
 ```
-NABU Setup 1.1.0 (2026-10-04)
+NABU Setup 1.2.0 (2026-10-04)
 
 Password for the web panel (user: nabu):
 Type it again:
@@ -305,6 +305,7 @@ The whole server is managed with a single command.
 | `nabu restart` | Restarts the IA |
 | `nabu backup` | Creates a backup |
 | `nabu update` | Updates the IA to the latest release |
+| `nabu setup` | Updates NABU Setup to the latest published release |
 | `nabu poweroff` | Shuts the Pi down safely |
 | `nabu version` | Shows the NABU Setup version and release date |
 | `nabu help` | Shows the help |
@@ -383,6 +384,27 @@ nabu update
 
 It downloads the latest IA release, creates a backup, stops the IA, installs the new release over the old one, and starts it again. Your files, your settings, and the printouts folder are left untouched.
 
+## `nabu setup`: updating NABU Setup
+
+```
+nabu setup
+```
+
+It downloads the latest published NABU Setup release from the repository, in the same language as the installed one, and shows both versions:
+
+```
+Downloading https://raw.githubusercontent.com/czayas/nabu-setup/main/nabu-setup-en.sh
+Installed: NABU Setup 1.2.0 (2026-10-04)
+Published: NABU Setup 1.2.0 (2026-10-04)
+You already have the latest version. Install it again? [y/N]
+```
+
+If you already have the latest, as in this example, or if the installed one is newer than the published one, it asks before going on. If the published one is newer, it runs the installer with no further questions.
+
+The rest is the same as a manual installation; the details are in the [Updating NABU Setup](#updating-nabu-setup) section.
+
+> **Note.** Do not confuse this command with `nabu update`, which updates the Internet Adapter.
+
 ## `nabu poweroff`: shutting down the Pi
 
 ```
@@ -400,7 +422,7 @@ nabu version
 ```
 
 ```
-NABU Setup 1.1.0 (2026-10-04)
+NABU Setup 1.2.0 (2026-10-04)
 https://github.com/czayas/nabu-setup
 ```
 
@@ -637,12 +659,24 @@ Three things on the server are updated separately.
 | What | How | When |
 |---|---|---|
 | The Internet Adapter | `nabu update` or the **Update IA** button | When nabu.ca publishes a new release |
-| NABU Setup | Download the new script and run it | When there is a new release in the repository |
+| NABU Setup | `nabu setup` | When there is a new release in the repository |
 | The Pi's system | `sudo apt update && sudo apt full-upgrade -y` | Every so often |
 
 ## Updating NABU Setup
 
-Download the new release of the script and run it just like the first time:
+```
+nabu setup
+```
+
+The command downloads the latest published release and runs its installer. When it asks about the panel password, press Enter to keep the one you have. The installer replaces the `nabu` command, the panel, the printer, and the backup tool. It does not download the IA again or restart it, and there is no need to reboot the Pi.
+
+Use `nabu version` to check which version ended up installed.
+
+`nabu setup` needs a terminal, because the installer asks questions; that is why it has no button on the web panel.
+
+### Updating by hand
+
+The `nabu setup` command exists since version 1.2.0. To update an earlier installation, or to switch from one language to the other, download the script and run it just like the first time:
 
 ```
 wget -O nabu-setup-en.sh \
@@ -650,11 +684,7 @@ wget -O nabu-setup-en.sh \
 bash nabu-setup-en.sh
 ```
 
-When it asks about the panel password, press Enter to keep the one you have. The script replaces the `nabu` command, the panel, the printer, and the backup tool. It does not download the IA again or restart it, and there is no need to reboot the Pi.
-
-Use `nabu version` to check which version ended up installed.
-
-To switch from one language to the other, do the same with the other edition's script, `nabu-setup-es.sh`.
+To switch to Spanish, use `nabu-setup-es.sh` in both places.
 
 # Troubleshooting
 
@@ -771,3 +801,4 @@ The license covers NABU Setup only. The NABU Internet Adapter is a separate prog
 |---|---|---|---|
 | 1 | 2026-10-03 | 1.0.0 | First release |
 | 2 | 2026-10-04 | 1.1.0 | Safe shutdown: `nabu poweroff` command and **Shut down the Pi** button on the web panel |
+| 3 | 2026-10-04 | 1.2.0 | `nabu setup` command for updating NABU Setup |
