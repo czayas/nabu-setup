@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NABU Setup — servidor NABU minimalista para Raspberry Pi (Raspberry Pi OS Lite)
-# Versión 1.0.0 · publicada el 2026-10-03 · edición en español
+# Versión 1.1.0 · publicada el 2026-10-04 · edición en español
 #
 # Retro Informática Paraguay — https://www.youtube.com/@retroinfopy
 # Repositorio y manual de usuario: https://github.com/czayas/nabu-setup
@@ -29,8 +29,8 @@
 # autor del NABU Internet Adapter.
 set -euo pipefail
 
-NABU_SETUP_VERSION="1.0.0"
-NABU_SETUP_DATE="2026-10-03"
+NABU_SETUP_VERSION="1.1.0"
+NABU_SETUP_DATE="2026-10-04"
 NABU_SETUP_LANG="es"
 NABU_SETUP_REPO="https://github.com/czayas/nabu-setup"
 
@@ -196,10 +196,10 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-echo "==> Permitiendo controlar el servicio sin contraseña (para el panel web)"
+echo "==> Permitiendo controlar el servicio y apagar la Pi sin contraseña (para el panel web)"
 SYSTEMCTL="$(command -v systemctl)"
 sudo tee /etc/sudoers.d/nabu >/dev/null <<EOF
-$U ALL=(root) NOPASSWD: $SYSTEMCTL start nabu-ia, $SYSTEMCTL stop nabu-ia, $SYSTEMCTL restart nabu-ia, $SYSTEMCTL reset-failed nabu-ia
+$U ALL=(root) NOPASSWD: $SYSTEMCTL start nabu-ia, $SYSTEMCTL stop nabu-ia, $SYSTEMCTL restart nabu-ia, $SYSTEMCTL reset-failed nabu-ia, $SYSTEMCTL poweroff
 EOF
 sudo chmod 440 /etc/sudoers.d/nabu
 sudo visudo -cf /etc/sudoers.d/nabu >/dev/null
@@ -228,6 +228,7 @@ Uso: nabu [comando]
   nabu backup     Guarda un backup .zip de CP/M y la configuración en ~/backups
                   (se conservan los últimos 5)
   nabu update     Descarga la última versión del IA (hace un backup antes)
+  nabu poweroff   Apaga la Pi de forma segura; después puedes cortar la corriente
   nabu version    Muestra la versión y la fecha de NABU Setup
   nabu help       Muestra esta ayuda
 
@@ -285,6 +286,9 @@ case "${1:-}" in
     rm -f "$tmp"
     sudo systemctl start nabu-ia
     echo "Listo. El Internet Adapter se actualizó y volvió a arrancar." ;;
+  poweroff)
+    echo "Apagando la Pi. Espera a que el LED verde deje de parpadear antes de cortar la corriente."
+    exec sudo systemctl poweroff ;;
   version)
     echo "$VERSION"
     [[ -n "${NABU_SETUP_REPO:-}" ]] && echo "$NABU_SETUP_REPO"
@@ -949,6 +953,7 @@ AUTH_OK = set()            # cabeceras ya verificadas (PBKDF2 es lento en una Pi
 UPD = {"state": "idle", "out": ""}
 REALM = "Servidor NABU"
 UNKNOWN = "desconocido"
+NO_POWEROFF = "Sin permiso para apagar la Pi. Vuelve a ejecutar NABU Setup."
 WHEN = "{d}/{mo}/{y} {h}:{mi}:{s}"     # fecha y hora de cada impresión en la lista
 BACKUPS = os.environ.get("NABU_BACKUP_DIR", os.path.expanduser("~/backups"))
 BACKUP_RE = re.compile(r"nabu-backup-[0-9-]+\.zip")
@@ -1128,6 +1133,13 @@ class Handler(BaseHTTPRequestHandler):
                     {"ok": False, "out": "Ya hay una actualización en curso."}))
             threading.Thread(target=do_update, daemon=True).start()
             self.send(202, json.dumps({"ok": True}))
+        elif action == "poweroff":
+            rc, _ = run(["sudo", "-n", "-l", "systemctl", "poweroff"])
+            if rc != 0:
+                return self.send(500, json.dumps({"ok": False, "out": NO_POWEROFF}))
+            self.send(200, json.dumps({"ok": True}))
+            # se apaga un segundo después, para que el navegador reciba la respuesta
+            threading.Timer(1.0, run, [["sudo", "-n", "systemctl", "poweroff"]]).start()
         else:
             self.send(400, json.dumps({"ok": False, "out": "Acción desconocida."}))
 
@@ -1161,6 +1173,8 @@ border-radius:10px;padding:12px;cursor:pointer}
 button:active{transform:scale(.98)}
 button.main{background:var(--acc);color:#001233;font-weight:600}
 button:disabled{opacity:.5}
+.btns .wide{grid-column:1/-1}
+button.danger{background:transparent;border-color:#7a3340;color:var(--bad)}
 .tabs{display:flex;gap:8px;margin-bottom:10px}
 .tabs button{flex:1;padding:8px}
 .tabs button.on{border-color:var(--acc);color:var(--acc)}
@@ -1192,6 +1206,7 @@ footer a{color:inherit}
 <button id="b-toggle" onclick="toggle()">Detener</button>
 <button onclick="backup()" id="b-bak">Backup</button>
 <button onclick="update()" id="b-upd">Actualizar IA</button>
+<button class="wide danger" onclick="poweroff()">Apagar la Pi</button>
 </div>
 <div id="msg"></div>
 </div>
@@ -1225,19 +1240,22 @@ const T={
   updateOk:'Actualización completa.', updateFail:'La actualización falló (ver Registro).',
   backingUp:'Creando backup…', backupOk:'Backup creado: ', downloading:'. Descargando…',
   backupFail:'Error al crear el backup: ',
+  confirmOff:'¿Apagar la Pi? Para volver a encenderla tendrás que cortar y devolver la corriente.',
+  poweringOff:'Apagando la Pi… Espera a que el LED verde deje de parpadear antes de cortar la corriente.',
   empty:'(vacío)', loadFail:'No se pudo cargar.',
   printerOff:'La impresora virtual no está activa.',
   noPrints:'Todavía no hay impresiones. Prueba LPRINT desde MBASIC.',
   page:' página', pages:' páginas',
   older:n=>'Hay '+n+' más antiguas en la carpeta de impresiones.'
 };
-let view='screen', active='', printer=true, printsKey='';
+let view='screen', active='', printer=true, printsKey='', off=false;
 const $=id=>document.getElementById(id);
 async function api(p,opt){const r=await fetch(p,opt);return r.json();}
 function set(id,cls,txt){const e=$(id);e.className='item '+cls;e.querySelector('b span:last-child').textContent=txt;}
 function msg(t){$('msg').textContent=t||'';}
 function post(a){return api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:a})});}
 async function refresh(){
+  if(off) return;
   try{
     const s=await api('/api/status'); active=s.active; printer=s.printer;
     set('s-svc', s.active==='active'?'ok':(s.active==='activating'?'warn':'bad'), T[s.active]||s.active);
@@ -1278,6 +1296,11 @@ async function update(){
       $('view').textContent=u.out; refresh();}
   },3000);
 }
+async function poweroff(){
+  if(!confirm(T.confirmOff))return;
+  try{const r=await post('poweroff'); if(r.ok){off=true; msg(T.poweringOff);} else msg(T.error+r.out);}
+  catch(e){msg(T.noConn);}
+}
 function tab(v){view=v;$('t-screen').classList.toggle('on',v==='screen');$('t-log').classList.toggle('on',v==='log');loadView();}
 async function loadView(){
   try{const r=await api(view==='screen'?'/api/screen':'/api/log');$('view').textContent=r.text||T.empty;}
@@ -1303,7 +1326,7 @@ async function loadPrints(){
 }
 refresh(); loadView();
 setInterval(refresh,10000);
-setInterval(()=>{ if(view==='screen') loadView(); },5000);
+setInterval(()=>{ if(view==='screen'&&!off) loadView(); },5000);
 </script></body></html>"""
 
 

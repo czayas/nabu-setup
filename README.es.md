@@ -4,15 +4,15 @@
 
 NABU Setup es un script de instalación que convierte una Raspberry Pi en un pequeño servidor para la [computadora NABU](https://en.wikipedia.org/wiki/NABU_Network). Descarga el [NABU Internet Adapter](https://nabu.ca/downloads-nabu-internet-adapter) oficial, lo deja funcionando como servicio y agrega las herramientas para administrarlo desde una terminal o desde un teléfono.
 
-Versión actual: **1.0.0**, publicada el 2026-10-03. Consulta el [registro de cambios](CHANGELOG.es.md).
+Versión actual: **1.1.0**, publicada el 2026-10-04. Consulta el [registro de cambios](CHANGELOG.es.md).
 
 ![Componentes de un servidor NABU instalado con NABU Setup](docs/img/architecture-es.png)
 
 ## Qué instala
 
 - **El NABU Internet Adapter como servicio.** Arranca cuando se enciende la Pi y se reinicia si se cierra. Corre dentro de una sesión de `tmux`, así que puedes abrir su interfaz de texto por SSH y dejarlo en marcha.
-- **El comando `nabu`**, para consultar, iniciar, detener y actualizar el servidor y hacer backups.
-- **Un panel web** en el puerto 80, protegido con contraseña, con indicadores de estado, botones de control, una vista en vivo de la pantalla del Internet Adapter y el registro del servicio.
+- **El comando `nabu`**, para consultar, iniciar, detener y actualizar el servidor, hacer backups y apagar la Pi de forma segura.
+- **Un panel web** en el puerto 80, protegido con contraseña, con indicadores de estado, botones de control (incluido el apagado seguro), una vista en vivo de la pantalla del Internet Adapter y el registro del servicio.
 - **Una impresora virtual.** Lo que la NABU imprime en el dispositivo `LST:` desde Cloud CP/M se convierte en un PDF con aspecto de impresora de matriz de puntos y papel continuo. Admite negrita, subrayado y la sobreimpresión que usa WordStar.
 - **Backups** de las unidades de CP/M, los programas locales y la configuración, en archivos .zip. Se conservan los últimos cinco.
 
@@ -24,7 +24,7 @@ Todo lo que no es el Internet Adapter está hecho en Bash y Python, sin más bib
 - Raspberry Pi OS Lite, preferentemente de 64 bits, con SSH activado.
 - Un adaptador USB a RS-422 y un cable hasta la NABU. Consulta [Make NABU Cable](https://nabu.ca/Make-NABU-Cable).
 
-La versión 1.0.0 se probó en una Raspberry Pi 3 Model A+.
+Se desarrolló y se probó en una Raspberry Pi 3 Model A+.
 
 ## Instalación
 
@@ -50,6 +50,7 @@ Hay dos ediciones con el mismo código y distinto idioma: `nabu-setup-es.sh` (es
 | `nabu start`, `stop`, `restart` | Controlan el Internet Adapter |
 | `nabu backup` | Guarda un backup en `~/backups` |
 | `nabu update` | Actualiza el Internet Adapter, después de hacer un backup |
+| `nabu poweroff` | Apaga la Pi de forma segura antes de cortar la corriente |
 | `nabu version` | Muestra la versión y la fecha de NABU Setup |
 | `nabu help` | Muestra la ayuda |
 

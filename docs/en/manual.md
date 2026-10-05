@@ -6,13 +6,13 @@ lang: en-US
 babel: "american"
 papersize: letter
 publisher: "Retro Informática Paraguay"
-script-version: "1.0.0"
-script-date: "2026-10-03"
-manual-revision: "1"
-date: "October 3, 2026"
+script-version: "1.1.0"
+script-date: "2026-10-04"
+manual-revision: "2"
+date: "October 4, 2026"
 repo: "https://github.com/czayas/nabu-setup"
 channel: "https://www.youtube.com/@retroinfopy"
-footer: "NABU Setup 1.0.0 · Manual, revision 1"
+footer: "NABU Setup 1.1.0 · Manual, revision 2"
 labels:
   script: "NABU Setup version"
   revision: "Manual revision"
@@ -39,7 +39,7 @@ This is what it installs:
 
 NABU Setup is an independent project by Retro Informática Paraguay. It neither replaces nor modifies the NABU Internet Adapter: it downloads it from the official site and gets it ready to use. It is not affiliated with nabu.ca or with the author of the Internet Adapter.
 
-This manual covers NABU Setup 1.0.0, English edition (`nabu-setup-en.sh`). The script and the manual are also published in Spanish.
+This manual covers NABU Setup 1.1.0, English edition (`nabu-setup-en.sh`). The script and the manual are also published in Spanish.
 
 ## The NABU Personal Computer
 
@@ -115,7 +115,7 @@ The IA is available for Windows, Linux, and macOS. On Linux it has a menu-driven
 
 And, of course, a NABU PC connected to a TV or monitor.
 
-> **Important.** NABU Setup 1.0.0 was tested on a Raspberry Pi 3 Model A+ (512 MB) running 64-bit Raspberry Pi OS Lite. It should work the same way on the other compatible models, but that has not been tested.
+> **Important.** NABU Setup was developed and tested on a Raspberry Pi 3 Model A+ (512 MB) running 64-bit Raspberry Pi OS Lite. It should work the same way on the other compatible models, but that has not been tested.
 
 ## Software
 
@@ -215,7 +215,7 @@ The first thing it does is ask you for a **password for the web panel**. Type it
 After that it works on its own. You will see something like this:
 
 ```
-NABU Setup 1.0.0 (2026-10-03)
+NABU Setup 1.1.0 (2026-10-04)
 
 Password for the web panel (user: nabu):
 Type it again:
@@ -227,7 +227,7 @@ Type it again:
 ==> tmux configuration for the IA
 ==> Saving /etc/nabu-ia.conf
 ==> Creating the nabu-ia systemd service
-==> Allowing the service to be controlled without a password (for the web panel)
+==> Allowing service control and shutdown without a password (for the web panel)
 ==> Installing the administration command: nabu
 ==> Installing the backup tool
 ==> Installing the virtual printer (LST.TXT to PDF)
@@ -305,6 +305,7 @@ The whole server is managed with a single command.
 | `nabu restart` | Restarts the IA |
 | `nabu backup` | Creates a backup |
 | `nabu update` | Updates the IA to the latest release |
+| `nabu poweroff` | Shuts the Pi down safely |
 | `nabu version` | Shows the NABU Setup version and release date |
 | `nabu help` | Shows the help |
 
@@ -382,6 +383,16 @@ nabu update
 
 It downloads the latest IA release, creates a backup, stops the IA, installs the new release over the old one, and starts it again. Your files, your settings, and the printouts folder are left untouched.
 
+## `nabu poweroff`: shutting down the Pi
+
+```
+nabu poweroff
+```
+
+It stops the services, closes the open files, and shuts the system down. Once the Pi's green LED stops blinking, a few seconds later, you can cut the power.
+
+Always use it before unplugging the power supply or flipping a switch on the cable. The [Shutting down the Pi](#shutting-down-the-pi) section explains why.
+
 ## `nabu version` and `nabu help`
 
 ```
@@ -389,7 +400,7 @@ nabu version
 ```
 
 ```
-NABU Setup 1.0.0 (2026-10-03)
+NABU Setup 1.1.0 (2026-10-04)
 https://github.com/czayas/nabu-setup
 ```
 
@@ -422,6 +433,7 @@ The first card sums up the state of the server and refreshes every ten seconds. 
 - **Stop** stops it, after asking for confirmation. While the IA is stopped, the same button reads **Start**.
 - **Backup** creates a backup and downloads it to the device you are using the panel from.
 - **Update IA** does the same as `nabu update`. It may take a few minutes; when it finishes, the panel shows the result.
+- **Shut down the Pi** does the same as `nabu poweroff`, after asking for confirmation. The panel stops responding right away: wait until the Pi's green LED stops blinking before cutting the power.
 
 ## Printouts
 
@@ -680,7 +692,7 @@ If the problem lies with the Internet Adapter itself or with a NABU program, the
 | `/usr/local/lib/nabu/` | Web panel, virtual printer, and backup tool |
 | `/etc/nabu-ia.conf` | Paths, plus the NABU Setup version and date |
 | `/etc/nabu-web.conf` | Panel port and password hash |
-| `/etc/sudoers.d/nabu` | Permission to control the IA service without a password |
+| `/etc/sudoers.d/nabu` | Permission to control the IA service and shut down the Pi without a password |
 
 ## Services
 
@@ -694,11 +706,17 @@ All three start with the Pi. You can check them with `systemctl status` and read
 
 ## Shutting down the Pi
 
-Before unplugging the power supply, shut the system down so the card is not damaged:
+Cutting the power while the system is running can damage the contents of the microSD card. If the cut happens during a write, the file being saved may be left incomplete and, less often, the card may corrupt data that had nothing to do with that write. The riskiest moments are an update, the creation of a backup, and any file being saved from the NABU.
 
-```
-sudo poweroff
-```
+That is why you should always shut the system down before unplugging the power supply or flipping a switch on the cable. There are three ways, and all three do the same thing:
+
+- the **Shut down the Pi** button on the web panel;
+- the `nabu poweroff` command;
+- the system command `sudo poweroff`.
+
+Then wait until the Pi's green LED stops blinking, and only then cut the power. The Pi cannot cut its own power: once the system has shut down, it sits halted, with the red LED on and minimal power draw.
+
+To turn it back on, cut the power and restore it. Powering on carries no risk.
 
 ## Uninstalling
 
@@ -752,3 +770,4 @@ The license covers NABU Setup only. The NABU Internet Adapter is a separate prog
 | Revision | Date | NABU Setup | Changes |
 |---|---|---|---|
 | 1 | 2026-10-03 | 1.0.0 | First release |
+| 2 | 2026-10-04 | 1.1.0 | Safe shutdown: `nabu poweroff` command and **Shut down the Pi** button on the web panel |

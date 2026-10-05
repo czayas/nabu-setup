@@ -6,13 +6,13 @@ lang: es
 babel: "spanish,es-tabla,es-noshorthands,es-nolayout"
 papersize: a4
 publisher: "Retro Informática Paraguay"
-script-version: "1.0.0"
-script-date: "2026-10-03"
-manual-revision: "1"
-date: "3 de octubre de 2026"
+script-version: "1.1.0"
+script-date: "2026-10-04"
+manual-revision: "2"
+date: "4 de octubre de 2026"
 repo: "https://github.com/czayas/nabu-setup"
 channel: "https://www.youtube.com/@retroinfopy"
-footer: "NABU Setup 1.0.0 · Manual, revisión 1"
+footer: "NABU Setup 1.1.0 · Manual, revisión 2"
 labels:
   script: "Versión de NABU Setup"
   revision: "Revisión del manual"
@@ -39,7 +39,7 @@ Esto es lo que instala:
 
 NABU Setup es un proyecto independiente de Retro Informática Paraguay. No reemplaza al NABU Internet Adapter ni lo modifica: lo descarga del sitio oficial y lo deja listo para usar. No está afiliado a nabu.ca ni al autor del Internet Adapter.
 
-Este manual corresponde a NABU Setup 1.0.0, edición en español (`nabu-setup-es.sh`). El script y el manual también se publican en inglés.
+Este manual corresponde a NABU Setup 1.1.0, edición en español (`nabu-setup-es.sh`). El script y el manual también se publican en inglés.
 
 ## La NABU Personal Computer
 
@@ -115,7 +115,7 @@ El IA existe para Windows, Linux y macOS. En Linux tiene una interfaz de texto c
 
 Y, por supuesto, una NABU PC conectada a un televisor o monitor.
 
-> **Importante.** NABU Setup 1.0.0 se probó en una Raspberry Pi 3 Model A+ (512 MB) con Raspberry Pi OS Lite de 64 bits. En los demás modelos compatibles debería funcionar igual, pero no fue probado.
+> **Importante.** NABU Setup se desarrolló y se probó en una Raspberry Pi 3 Model A+ (512 MB) con Raspberry Pi OS Lite de 64 bits. En los demás modelos compatibles debería funcionar igual, pero no fue probado.
 
 ## Software
 
@@ -215,7 +215,7 @@ Lo primero que hace es pedirte una **contraseña para el panel web**. Escríbela
 Después trabaja solo. En pantalla verás algo así:
 
 ```
-NABU Setup 1.0.0 (2026-10-03)
+NABU Setup 1.1.0 (2026-10-04)
 
 Contraseña para el panel web (usuario: nabu):
 Repítela:
@@ -227,7 +227,7 @@ Repítela:
 ==> Configuración de tmux para el IA
 ==> Guardando /etc/nabu-ia.conf
 ==> Creando servicio systemd nabu-ia
-==> Permitiendo controlar el servicio sin contraseña (para el panel web)
+==> Permitiendo controlar el servicio y apagar la Pi sin contraseña (para el panel web)
 ==> Instalando comando de administración: nabu
 ==> Instalando herramienta de backup
 ==> Instalando impresora virtual (LST.TXT a PDF)
@@ -305,6 +305,7 @@ Todo el servidor se administra con un solo comando.
 | `nabu restart` | Reinicia el IA |
 | `nabu backup` | Crea un backup |
 | `nabu update` | Actualiza el IA a la última versión |
+| `nabu poweroff` | Apaga la Pi de forma segura |
 | `nabu version` | Muestra la versión y la fecha de NABU Setup |
 | `nabu help` | Muestra la ayuda |
 
@@ -382,6 +383,16 @@ nabu update
 
 Descarga la última versión del IA, crea un backup, detiene el IA, instala la versión nueva encima de la anterior y lo vuelve a iniciar. Tus archivos, tu configuración y la carpeta de impresiones no se tocan.
 
+## `nabu poweroff`: apagar la Pi
+
+```
+nabu poweroff
+```
+
+Detiene los servicios, cierra los archivos abiertos y apaga el sistema. Cuando el LED verde de la Pi deja de parpadear, unos segundos después, ya puedes cortar la corriente.
+
+Úsalo siempre antes de desconectar la fuente o de accionar el interruptor del cable. La sección [Apagar la Pi](#apagar-la-pi) explica por qué.
+
 ## `nabu version` y `nabu help`
 
 ```
@@ -389,7 +400,7 @@ nabu version
 ```
 
 ```
-NABU Setup 1.0.0 (2026-10-03)
+NABU Setup 1.1.0 (2026-10-04)
 https://github.com/czayas/nabu-setup
 ```
 
@@ -422,6 +433,7 @@ La primera tarjeta resume el estado del servidor y se actualiza cada diez segund
 - **Detener** lo detiene, después de pedir confirmación. Con el IA detenido, el mismo botón pasa a decir **Iniciar**.
 - **Backup** crea un backup y lo descarga al dispositivo desde el que estás usando el panel.
 - **Actualizar IA** hace lo mismo que `nabu update`. Puede tardar unos minutos; al terminar, el panel muestra el resultado.
+- **Apagar la Pi** hace lo mismo que `nabu poweroff`, después de pedir confirmación. El panel deja de responder enseguida: espera a que el LED verde de la Pi deje de parpadear antes de cortar la corriente.
 
 ## Impresiones
 
@@ -680,7 +692,7 @@ Si el problema es del propio Internet Adapter o de un programa de la NABU, los l
 | `/usr/local/lib/nabu/` | Panel web, impresora virtual y herramienta de backup |
 | `/etc/nabu-ia.conf` | Rutas, versión y fecha de NABU Setup |
 | `/etc/nabu-web.conf` | Puerto del panel y hash de la contraseña |
-| `/etc/sudoers.d/nabu` | Permiso para controlar el servicio del IA sin contraseña |
+| `/etc/sudoers.d/nabu` | Permiso para controlar el servicio del IA y apagar la Pi sin contraseña |
 
 ## Servicios
 
@@ -694,11 +706,17 @@ Los tres arrancan con la Pi. Se consultan con `systemctl status` y su registro s
 
 ## Apagar la Pi
 
-Antes de desconectar la fuente, apaga el sistema para no dañar la tarjeta:
+Cortar la corriente con el sistema en marcha puede dañar el contenido de la tarjeta microSD. Si el corte coincide con una escritura, el archivo que se estaba guardando puede quedar incompleto y, con menos frecuencia, la tarjeta puede corromper datos que no tenían relación con esa escritura. Los momentos de más riesgo son una actualización, la creación de un backup y cualquier grabación de archivos desde la NABU.
 
-```
-sudo poweroff
-```
+Por eso conviene apagar siempre el sistema antes de desconectar la fuente o de accionar un interruptor en el cable. Hay tres formas, y las tres hacen lo mismo:
+
+- el botón **Apagar la Pi** del panel web;
+- el comando `nabu poweroff`;
+- el comando del sistema `sudo poweroff`.
+
+Después espera a que el LED verde de la Pi deje de parpadear y recién entonces corta la corriente. La Pi no puede cortar su propia alimentación: una vez apagado el sistema, queda detenida, con el LED rojo encendido y un consumo mínimo.
+
+Para volver a encenderla, corta la corriente y conéctala de nuevo. Encender no tiene ningún riesgo.
 
 ## Desinstalar
 
@@ -752,3 +770,4 @@ La licencia cubre solamente NABU Setup. El NABU Internet Adapter es un programa 
 | Revisión | Fecha | NABU Setup | Cambios |
 |---|---|---|---|
 | 1 | 2026-10-03 | 1.0.0 | Primera publicación |
+| 2 | 2026-10-04 | 1.1.0 | Apagado seguro: comando `nabu poweroff` y botón **Apagar la Pi** en el panel web |

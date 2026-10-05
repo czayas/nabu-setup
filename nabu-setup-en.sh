@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NABU Setup — a minimal NABU server for Raspberry Pi (Raspberry Pi OS Lite)
-# Version 1.0.0 · released on 2026-10-03 · English edition
+# Version 1.1.0 · released on 2026-10-04 · English edition
 #
 # Retro Informática Paraguay — https://www.youtube.com/@retroinfopy
 # Repository and user manual: https://github.com/czayas/nabu-setup
@@ -29,8 +29,8 @@
 # with the author of the NABU Internet Adapter.
 set -euo pipefail
 
-NABU_SETUP_VERSION="1.0.0"
-NABU_SETUP_DATE="2026-10-03"
+NABU_SETUP_VERSION="1.1.0"
+NABU_SETUP_DATE="2026-10-04"
 NABU_SETUP_LANG="en"
 NABU_SETUP_REPO="https://github.com/czayas/nabu-setup"
 
@@ -196,10 +196,10 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-echo "==> Allowing the service to be controlled without a password (for the web panel)"
+echo "==> Allowing service control and shutdown without a password (for the web panel)"
 SYSTEMCTL="$(command -v systemctl)"
 sudo tee /etc/sudoers.d/nabu >/dev/null <<EOF
-$U ALL=(root) NOPASSWD: $SYSTEMCTL start nabu-ia, $SYSTEMCTL stop nabu-ia, $SYSTEMCTL restart nabu-ia, $SYSTEMCTL reset-failed nabu-ia
+$U ALL=(root) NOPASSWD: $SYSTEMCTL start nabu-ia, $SYSTEMCTL stop nabu-ia, $SYSTEMCTL restart nabu-ia, $SYSTEMCTL reset-failed nabu-ia, $SYSTEMCTL poweroff
 EOF
 sudo chmod 440 /etc/sudoers.d/nabu
 sudo visudo -cf /etc/sudoers.d/nabu >/dev/null
@@ -228,6 +228,7 @@ Usage: nabu [command]
   nabu backup     Saves a .zip backup of CP/M and the settings to ~/backups
                   (the latest 5 are kept)
   nabu update     Downloads the latest IA release (makes a backup first)
+  nabu poweroff   Shuts the Pi down safely; after that you can cut the power
   nabu version    Shows the NABU Setup version and release date
   nabu help       Shows this help
 
@@ -285,6 +286,9 @@ case "${1:-}" in
     rm -f "$tmp"
     sudo systemctl start nabu-ia
     echo "Done. The Internet Adapter was updated and is running again." ;;
+  poweroff)
+    echo "Shutting down the Pi. Wait until the green LED stops blinking before cutting the power."
+    exec sudo systemctl poweroff ;;
   version)
     echo "$VERSION"
     [[ -n "${NABU_SETUP_REPO:-}" ]] && echo "$NABU_SETUP_REPO"
@@ -949,6 +953,7 @@ AUTH_OK = set()            # headers already verified (PBKDF2 is slow on a Pi)
 UPD = {"state": "idle", "out": ""}
 REALM = "NABU Server"
 UNKNOWN = "unknown"
+NO_POWEROFF = "Not allowed to shut down the Pi. Run NABU Setup again."
 WHEN = "{mo}/{d}/{y} {h}:{mi}:{s}"     # date and time of each printout in the list
 BACKUPS = os.environ.get("NABU_BACKUP_DIR", os.path.expanduser("~/backups"))
 BACKUP_RE = re.compile(r"nabu-backup-[0-9-]+\.zip")
@@ -1128,6 +1133,13 @@ class Handler(BaseHTTPRequestHandler):
                     {"ok": False, "out": "An update is already in progress."}))
             threading.Thread(target=do_update, daemon=True).start()
             self.send(202, json.dumps({"ok": True}))
+        elif action == "poweroff":
+            rc, _ = run(["sudo", "-n", "-l", "systemctl", "poweroff"])
+            if rc != 0:
+                return self.send(500, json.dumps({"ok": False, "out": NO_POWEROFF}))
+            self.send(200, json.dumps({"ok": True}))
+            # shuts down one second later, so the browser gets the response
+            threading.Timer(1.0, run, [["sudo", "-n", "systemctl", "poweroff"]]).start()
         else:
             self.send(400, json.dumps({"ok": False, "out": "Unknown action."}))
 
@@ -1161,6 +1173,8 @@ border-radius:10px;padding:12px;cursor:pointer}
 button:active{transform:scale(.98)}
 button.main{background:var(--acc);color:#001233;font-weight:600}
 button:disabled{opacity:.5}
+.btns .wide{grid-column:1/-1}
+button.danger{background:transparent;border-color:#7a3340;color:var(--bad)}
 .tabs{display:flex;gap:8px;margin-bottom:10px}
 .tabs button{flex:1;padding:8px}
 .tabs button.on{border-color:var(--acc);color:var(--acc)}
@@ -1192,6 +1206,7 @@ footer a{color:inherit}
 <button id="b-toggle" onclick="toggle()">Stop</button>
 <button onclick="backup()" id="b-bak">Backup</button>
 <button onclick="update()" id="b-upd">Update IA</button>
+<button class="wide danger" onclick="poweroff()">Shut down the Pi</button>
 </div>
 <div id="msg"></div>
 </div>
@@ -1225,19 +1240,22 @@ const T={
   updateOk:'Update complete.', updateFail:'The update failed (see Log).',
   backingUp:'Creating backup…', backupOk:'Backup created: ', downloading:'. Downloading…',
   backupFail:'Could not create the backup: ',
+  confirmOff:'Shut down the Pi? To turn it back on you will have to cut the power and restore it.',
+  poweringOff:'Shutting down the Pi… Wait until the green LED stops blinking before cutting the power.',
   empty:'(empty)', loadFail:'Could not load.',
   printerOff:'The virtual printer is not running.',
   noPrints:'No printouts yet. Try LPRINT from MBASIC.',
   page:' page', pages:' pages',
   older:n=>'There are '+n+' older ones in the printouts folder.'
 };
-let view='screen', active='', printer=true, printsKey='';
+let view='screen', active='', printer=true, printsKey='', off=false;
 const $=id=>document.getElementById(id);
 async function api(p,opt){const r=await fetch(p,opt);return r.json();}
 function set(id,cls,txt){const e=$(id);e.className='item '+cls;e.querySelector('b span:last-child').textContent=txt;}
 function msg(t){$('msg').textContent=t||'';}
 function post(a){return api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:a})});}
 async function refresh(){
+  if(off) return;
   try{
     const s=await api('/api/status'); active=s.active; printer=s.printer;
     set('s-svc', s.active==='active'?'ok':(s.active==='activating'?'warn':'bad'), T[s.active]||s.active);
@@ -1278,6 +1296,11 @@ async function update(){
       $('view').textContent=u.out; refresh();}
   },3000);
 }
+async function poweroff(){
+  if(!confirm(T.confirmOff))return;
+  try{const r=await post('poweroff'); if(r.ok){off=true; msg(T.poweringOff);} else msg(T.error+r.out);}
+  catch(e){msg(T.noConn);}
+}
 function tab(v){view=v;$('t-screen').classList.toggle('on',v==='screen');$('t-log').classList.toggle('on',v==='log');loadView();}
 async function loadView(){
   try{const r=await api(view==='screen'?'/api/screen':'/api/log');$('view').textContent=r.text||T.empty;}
@@ -1303,7 +1326,7 @@ async function loadPrints(){
 }
 refresh(); loadView();
 setInterval(refresh,10000);
-setInterval(()=>{ if(view==='screen') loadView(); },5000);
+setInterval(()=>{ if(view==='screen'&&!off) loadView(); },5000);
 </script></body></html>"""
 
 
