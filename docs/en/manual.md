@@ -6,13 +6,13 @@ lang: en-US
 babel: "american"
 papersize: letter
 publisher: "Retro Informática Paraguay"
-script-version: "1.2.0"
-script-date: "2026-10-04"
-manual-revision: "3"
-date: "October 4, 2026"
+script-version: "1.3.0"
+script-date: "2026-10-05"
+manual-revision: "4"
+date: "October 5, 2026"
 repo: "https://github.com/czayas/nabu-setup"
 channel: "https://www.youtube.com/@retroinfopy"
-footer: "NABU Setup 1.2.0 · Manual, revision 3"
+footer: "NABU Setup 1.3.0 · Manual, revision 4"
 labels:
   script: "NABU Setup version"
   revision: "Manual revision"
@@ -39,7 +39,7 @@ This is what it installs:
 
 NABU Setup is an independent project by Retro Informática Paraguay. It neither replaces nor modifies the NABU Internet Adapter: it downloads it from the official site and gets it ready to use. It is not affiliated with nabu.ca or with the author of the Internet Adapter.
 
-This manual covers NABU Setup 1.2.0, English edition (`nabu-setup-en.sh`). The script and the manual are also published in Spanish.
+This manual covers NABU Setup 1.3.0, English edition (`nabu-setup-en.sh`). The script and the manual are also published in Spanish.
 
 ## The NABU Personal Computer
 
@@ -215,7 +215,7 @@ The first thing it does is ask you for a **password for the web panel**. Type it
 After that it works on its own. You will see something like this:
 
 ```
-NABU Setup 1.2.0 (2026-10-04)
+NABU Setup 1.3.0 (2026-10-05)
 
 Password for the web panel (user: nabu):
 Type it again:
@@ -394,8 +394,8 @@ It downloads the latest published NABU Setup release from the repository, in the
 
 ```
 Downloading https://raw.githubusercontent.com/czayas/nabu-setup/main/nabu-setup-en.sh
-Installed: NABU Setup 1.2.0 (2026-10-04)
-Published: NABU Setup 1.2.0 (2026-10-04)
+Installed: NABU Setup 1.3.0 (2026-10-05)
+Published: NABU Setup 1.3.0 (2026-10-05)
 You already have the latest version. Install it again? [y/N]
 ```
 
@@ -422,7 +422,7 @@ nabu version
 ```
 
 ```
-NABU Setup 1.2.0 (2026-10-04)
+NABU Setup 1.3.0 (2026-10-05)
 https://github.com/czayas/nabu-setup
 ```
 
@@ -459,7 +459,7 @@ The first card sums up the state of the server and refreshes every ten seconds. 
 
 ## Printouts
 
-This lists the virtual printer's printouts, newest first, with the date, time, page count, and size. Tap one and the PDF opens in another tab. The panel shows the 50 most recent; older ones remain in the `~/nabu/printer` folder.
+This lists the virtual printer's printouts, newest first, with the date, time, page count, and size. Tap one and the PDF opens in another tab. The red **X** to the right of each one deletes it, after asking for confirmation. The panel shows the 50 most recent; older ones remain in the `~/nabu/printer` folder.
 
 ## Screen and Log
 
@@ -542,6 +542,73 @@ It works with any text file, even one on another drive: `PIP LST:=D:DIR.DIR`.
 
 > **Note.** Cloud CP/M does not support the Ctrl-P key combination, which in other versions of CP/M echoes everything shown on screen to the printer.
 
+## Printing from WordStar
+
+Cloud CP/M includes WordStar on drive A:, user area 6. WordStar prints to `LST:`, so every document you print ends up as a PDF.
+
+1. From `A:0>`, switch user areas and start the program:
+
+    ```
+    USER 6
+    WS
+    ```
+
+2. On the opening menu, press `D` to open a document and type its name, for example `D:LETTER.TXT`. The `D:` prefix saves it on drive D: instead of A:, which belongs to the cloud.
+3. Type the text. WordStar wraps to the next line on its own: press Enter (the GO key on the NABU) only at the end of each paragraph.
+4. Save with `^KD`, which also returns to the opening menu.
+5. Press `P`, type the document's name, and press Esc instead of Enter. That skips the questions and starts printing.
+
+The `^` sign stands for the Ctrl key: `^KD` is Ctrl-K followed by the letter D.
+
+| Keys | Action |
+|---|---|
+| `^PB` | Turns bold on and off |
+| `^PS` | Turns underline on and off |
+| `^PH` | Prints the next character on top of the previous one |
+| `^B` | Reforms the paragraph after an edit |
+| `^KS` | Saves and lets you keep typing |
+| `^KD` | Saves and returns to the opening menu |
+
+The PDF keeps the margins, the justified text, bold, underline, and the page number WordStar adds at the bottom.
+
+> **Note.** Printing from WordStar was tested on a real NABU, with the WordStar that ships with Cloud CP/M.
+
+## Accented letters
+
+CP/M programs work in 7-bit ASCII, which has no accented letters. The technique of the day is the typewriter's: print the letter and then the accent on top of it. The virtual printer recognizes that overstrike and draws a single accented letter. The letter is stored that way in the text of the PDF too, so you can search for it and copy it.
+
+In WordStar, `^PH` makes the next character print on top of the previous one:
+
+| To get | Type |
+|---|---|
+| á é í ó ú | the vowel, `^PH`, and `'` |
+| ü | `u`, `^PH`, and `"` |
+| ñ | `n`, `^PH`, and `-` |
+| Ñ | `N`, `^PH`, and `-` |
+
+WordStar's screen does not show the accented letter, but something like `n^H-`. You see the result when you print.
+
+The NABU keyboard has no `~` key. That is why the printer also makes an ñ from a hyphen or a `^` over the `n`. A run of hyphens over a piece of text is still strikeout. If you type from a telnet client, `n`, `^PH`, and `~` gives the same result.
+
+These are all the marks it recognizes, over lowercase and capital letters:
+
+| Mark | Accent | Letters |
+|---|---|---|
+| `'` | Acute | á é í ó ú ý |
+| `` ` `` | Grave | à è ì ò ù |
+| `^` | Circumflex | â ê î ô û |
+| `~` | Tilde | ñ ã õ |
+| `"` | Diaeresis | ä ë ï ö ü ÿ |
+| `,` | Cedilla | ç |
+
+The same method works from other programs, using the backspace character. For example, in MBASIC:
+
+```
+LPRINT "Asuncio";CHR$(8);"'n, Espan";CHR$(8);"-a"
+```
+
+> **Note.** The `¿` and `¡` signs cannot be made by overstriking.
+
 ## What the printer understands
 
 The page is 80 columns by 66 lines, like an 11-inch sheet at 10 characters per inch. Longer lines wrap onto the next line.
@@ -557,11 +624,7 @@ The page is 80 columns by 66 lines, like an 11-inch sheet at 10 characters per i
 | `ESC @` | Resets the printer |
 | Other Epson control codes | Discarded without cluttering the page |
 
-It also recognizes **overstriking**, the technique word processors such as WordStar use on simple printers: they return to the start of the line and print on top of it. The same text twice comes out bold; underscores, underlined; hyphens, struck out.
-
-> **Important.** Overstriking was tested with simulated data. Printing from WordStar on a real NABU has not been verified yet.
-
-Accented letters do not exist in the printer's character set, which is 7-bit ASCII.
+It also recognizes **overstriking**, the technique word processors such as WordStar use on simple printers: they return to the start of the line and print on top of it. The same text twice comes out bold; underscores, underlined; hyphens, struck out; an accent over a letter, the accented letter.
 
 ## Where the PDFs are kept
 
@@ -575,7 +638,7 @@ There are three things worth knowing about this folder:
 
 - **It is not included in backups**, so they stay small.
 - **It is not deleted when you update** the IA or reinstall NABU Setup.
-- **It does not clean itself up.** To remove old printouts, delete the files; for example, the ones from September 2026:
+- **It does not clean itself up.** You can delete printouts one at a time from the web panel, or delete the files; for example, the ones from September 2026:
 
 ```
 rm ~/nabu/printer/print-2026-09-*.pdf
@@ -802,3 +865,4 @@ The license covers NABU Setup only. The NABU Internet Adapter is a separate prog
 | 1 | 2026-10-03 | 1.0.0 | First release |
 | 2 | 2026-10-04 | 1.1.0 | Safe shutdown: `nabu poweroff` command and **Shut down the Pi** button on the web panel |
 | 3 | 2026-10-04 | 1.2.0 | `nabu setup` command for updating NABU Setup |
+| 4 | 2026-10-05 | 1.3.0 | Accented letters on the virtual printer, printing from WordStar, and deleting printouts from the web panel |

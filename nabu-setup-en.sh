@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NABU Setup — a minimal NABU server for Raspberry Pi (Raspberry Pi OS Lite)
-# Version 1.2.0 · released on 2026-10-04 · English edition
+# Version 1.3.0 · released on 2026-10-05 · English edition
 #
 # Retro Informática Paraguay — https://www.youtube.com/@retroinfopy
 # Repository and user manual: https://github.com/czayas/nabu-setup
@@ -29,8 +29,8 @@
 # with the author of the NABU Internet Adapter.
 set -euo pipefail
 
-NABU_SETUP_VERSION="1.2.0"
-NABU_SETUP_DATE="2026-10-04"
+NABU_SETUP_VERSION="1.3.0"
+NABU_SETUP_DATE="2026-10-05"
 NABU_SETUP_LANG="en"
 NABU_SETUP_REPO="https://github.com/czayas/nabu-setup"
 
@@ -429,7 +429,7 @@ Standard library only. It never modifies LST.TXT: it remembers how far it read.
 It can also convert a single file:
     python3 nabu-print.py input.txt output.pdf
 """
-import datetime, json, os, sys, time, zlib
+import datetime, json, os, sys, time, unicodedata, zlib
 
 CONF = os.environ.get("NABU_IA_CONF", "/etc/nabu-ia.conf")
 
@@ -499,6 +499,30 @@ DESCENDERS = {
     "p": (".....", ".....", "####.", "#...#", "#...#", "#...#", "####.", "#....", "#...."),
     "q": (".....", ".....", ".####", "#...#", "#...#", "#...#", ".####", "....#", "....#"),
     "y": (".....", ".....", "#...#", "#...#", "#...#", "#...#", ".####", "....#", ".###."),
+}
+
+# Marks that, printed over a letter, make an accented letter. This is how
+# WordStar (^PH) and typewriters do it: the letter and, on top of it, the
+# accent. They are drawn as a single letter, which is also how they end up in
+# the text of the PDF. Two rows of dots per mark, top to bottom.
+ACCENTS = {
+    "'": ("\u0301", ("...#.", "..#..")),      # acute accent
+    "`": ("\u0300", (".#...", "..#..")),      # grave accent
+    "^": ("\u0302", ("..#..", ".#.#.")),      # circumflex
+    "~": ("\u0303", (".#..#", "#.##.")),      # tilde, as in the Spanish ñ
+    '"': ("\u0308", (".#.#.", ".....")),      # diaeresis
+    ",": ("\u0327", ("..#..", ".#...")),      # cedilla (goes below)
+}
+
+# Six-row capitals, to leave room for the accent above.
+TALL = {
+    "A": (".###.", "#...#", "#...#", "#####", "#...#", "#...#"),
+    "E": ("#####", "#....", "####.", "#....", "#....", "#####"),
+    "I": (".###.", "..#..", "..#..", "..#..", "..#..", ".###."),
+    "N": ("#...#", "##..#", "#.#.#", "#.#.#", "#..##", "#...#"),
+    "O": (".###.", "#...#", "#...#", "#...#", "#...#", ".###."),
+    "U": ("#...#", "#...#", "#...#", "#...#", "#...#", ".###."),
+    "Y": ("#...#", "#...#", ".#.#.", "..#..", "..#..", "..#.."),
 }
 
 # Epson codes (ESC + letter) that take one parameter and are ignored.
@@ -648,9 +672,34 @@ def _circle(x, y, r):
             "%s %s %s %s %s %s c %s %s %s %s %s %s c h\n" % tuple(t))
 
 
+def compose(letter, mark):
+    """The accented letter made by a letter and a mark, or None."""
+    if mark not in ACCENTS:
+        return None
+    c = unicodedata.normalize("NFC", letter + ACCENTS[mark][0])
+    return c if len(c) == 1 and 0xA0 <= ord(c) <= 0xFF else None
+
+
 def _dots(ch):
     """Dots (column, row) of a character. Rows 0 to 6 sit on the baseline;
-    7 and 8 go below it, like the lower pins of a 9-pin printer."""
+    7 and 8 go below it, like the lower pins of a 9-pin printer. Accented
+    letters also use row -1, above the line."""
+    if ord(ch) > 0x7E:                      # accented letter: letter + mark
+        letter, comb = unicodedata.normalize("NFD", ch)
+        rows = next(r for c, r in ACCENTS.values() if c == comb)
+
+        def mark(top):
+            return [(i, top + k) for k, row in enumerate(rows)
+                    for i, c in enumerate(row) if c == "#"]
+
+        if comb == "\u0327":                # cedilla: below the baseline
+            return _dots(letter) + mark(7)
+        if letter in TALL:                  # capital: six rows, with the accent above
+            return [(i, 1 + f) for f, row in enumerate(TALL[letter])
+                    for i, c in enumerate(row) if c == "#"] + mark(-1)
+        # small letter, minus the dot of the i; the tilde sits clear of the n
+        return ([(i, f) for i, f in _dots(letter) if f >= 2]
+                + mark(-1 if comb == "\u0303" else 0))
     if ch in DESCENDERS:
         return [(i, f) for f, row in enumerate(DESCENDERS[ch])
                 for i, c in enumerate(row) if c == "#"]
@@ -665,7 +714,7 @@ def _glyph(ch):
     """Drawing of a character: one circle per dot of the matrix.
     The cell is 600 units wide (thousandths of the font size)."""
     dots = _dots(ch)
-    s = "600 0 0 -200 600 700 d1\n"
+    s = "600 0 0 -200 600 800 d1\n"
     for col, row in dots:
         s += _circle(100 + 100 * col, 650 - 100 * row, 43)
     return s + ("f\n" if dots else "")
@@ -691,6 +740,16 @@ def _string(text):
     return "(" + text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)") + ")"
 
 
+def _struck(line, col):
+    """True if a neighboring letter also has a hyphen printed on it: a run
+    of hyphens is strikeout, not an ñ."""
+    for near in (col - 1, col + 1):
+        chars = [c for c, _ in line.get(near, [])]
+        if "-" in chars and any(c.isalnum() for c in chars):
+            return True
+    return False
+
+
 def _content(page, x0, height, used):
     """Text of one page. Bold and overstrike are done the way a real printer
     does them: a second pass shifted by half a dot."""
@@ -703,6 +762,21 @@ def _content(page, x0, height, used):
             for ch, bold in hits:
                 count, isbold = seen.get(ch, (0, False))
                 seen[ch] = (count + 1, isbold or bold)
+            letters = [c for c in seen if c.isalpha()]
+            if len(letters) == 1:           # a letter with an accent on top
+                letter = letters[0]
+                for mark in [c for c in seen if c in ACCENTS or c == "-"]:
+                    accented = compose(letter, mark)
+                    if letter in "nN" and (mark == "^" or (
+                            mark == "-" and not _struck(page[row], col))):
+                        # ñ typed with a circumflex or a hyphen, for keyboards
+                        # that lack the tilde, like the NABU's
+                        accented = "\u00f1" if letter == "n" else "\u00d1"
+                    if accented:
+                        count, isbold = seen.pop(letter)
+                        seen.pop(mark)
+                        seen[accented] = (count, isbold)
+                        break
             for ch, (count, isbold) in seen.items():
                 strikes.append((0, col, ch))
                 if isbold or count > 1:
@@ -755,7 +829,7 @@ CMAP = (b"/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n"
         b"/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n"
         b"/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n"
         b"1 begincodespacerange\n<00> <FF>\nendcodespacerange\n"
-        b"1 beginbfrange\n<20> <7E> <0020>\nendbfrange\n"
+        b"2 beginbfrange\n<20> <7E> <0020>\n<A0> <FF> <00A0>\nendbfrange\n"
         b"endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n")
 
 
@@ -783,15 +857,19 @@ def make_pdf(data, when=None):
         nxt += 1
 
     first, last = ord(chars[0]), ord(chars[-1])
-    diffs = " ".join("%d /%s" % (ord(c), NAMES[ord(c) - 32]) for c in chars)
+
+    def name(c):
+        return NAMES[ord(c) - 32] if ord(c) <= 0x7E else "uni%04X" % ord(c)
+
+    diffs = " ".join("%d /%s" % (ord(c), name(c)) for c in chars)
     obj[FONT] = (
         "<< /Type /Font /Subtype /Type3 /Name /NABUMatrix "
-        "/FontBBox [0 -200 600 700] /FontMatrix [0.001 0 0 0.001 0 0] "
+        "/FontBBox [0 -200 600 800] /FontMatrix [0.001 0 0 0.001 0 0] "
         "/CharProcs << %s >> "
         "/Encoding << /Type /Encoding /Differences [%s] >> "
         "/FirstChar %d /LastChar %d /Widths [%s] "
         "/Resources << /ProcSet [/PDF] >> /ToUnicode %d 0 R >>" % (
-            " ".join("/%s %d 0 R" % (NAMES[ord(c) - 32], procs[c]) for c in chars),
+            " ".join("/%s %d 0 R" % (name(c), procs[c]) for c in chars),
             diffs, first, last, " ".join(["600"] * (last - first + 1)), TOUNI),
         None)
     obj[TOUNI] = ("<< >>", CMAP)
@@ -983,6 +1061,7 @@ UPD = {"state": "idle", "out": ""}
 REALM = "NABU Server"
 UNKNOWN = "unknown"
 NO_POWEROFF = "Not allowed to shut down the Pi. Run NABU Setup again."
+NO_PRINT = "That printout no longer exists."
 WHEN = "{mo}/{d}/{y} {h}:{mi}:{s}"     # date and time of each printout in the list
 BACKUPS = os.environ.get("NABU_BACKUP_DIR", os.path.expanduser("~/backups"))
 BACKUP_RE = re.compile(r"nabu-backup-[0-9-]+\.zip")
@@ -1142,9 +1221,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(404, "{}")
         n = int(self.headers.get("Content-Length") or 0)
         try:
-            action = json.loads(self.rfile.read(n) or b"{}").get("action")
+            req = json.loads(self.rfile.read(n) or b"{}")
+            action = req.get("action")
         except Exception:
-            action = None
+            req, action = {}, None
         if action in ("start", "stop", "restart"):
             if action != "stop":
                 run(["sudo", "-n", "systemctl", "reset-failed", "nabu-ia"])
@@ -1162,6 +1242,17 @@ class Handler(BaseHTTPRequestHandler):
                     {"ok": False, "out": "An update is already in progress."}))
             threading.Thread(target=do_update, daemon=True).start()
             self.send(202, json.dumps({"ok": True}))
+        elif action == "print-delete":
+            name = str(req.get("name", ""))
+            path = os.path.join(PRINTS, name)
+            if not PRINT_RE.fullmatch(name) or not os.path.isfile(path):
+                return self.send(404, json.dumps({"ok": False, "out": NO_PRINT}))
+            try:
+                os.remove(path)
+            except OSError as e:
+                return self.send(500, json.dumps({"ok": False, "out": str(e)}))
+            PAGES.pop(name, None)
+            self.send(200, json.dumps({"ok": True}))
         elif action == "poweroff":
             rc, _ = run(["sudo", "-n", "-l", "systemctl", "poweroff"])
             if rc != 0:
@@ -1211,12 +1302,15 @@ pre{margin:0;background:#000a1f;border-radius:8px;padding:10px;overflow:auto;
 font:12px/1.35 ui-monospace,"DejaVu Sans Mono",monospace;max-height:55vh;white-space:pre}
 #msg{min-height:1.4em;color:var(--dim);font-size:.9rem;margin-top:10px}
 .plist{list-style:none;margin:0;padding:0;max-height:40vh;overflow:auto}
-.plist li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
-padding:10px 0;border-top:1px solid var(--line)}
+.plist li{display:flex;align-items:baseline;gap:12px;
+padding:3px 0;border-top:1px solid var(--line)}
 .plist li:first-child{border-top:0}
-.plist a{color:var(--acc);text-decoration:none;font-weight:600;font-variant-numeric:tabular-nums}
+.plist a{flex:1;color:var(--acc);text-decoration:none;font-weight:600;font-variant-numeric:tabular-nums}
 .plist small{color:var(--dim);font-size:.82rem;white-space:nowrap}
-.plist .empty{color:var(--dim);font-size:.9rem}
+.plist .empty{color:var(--dim);font-size:.9rem;padding:10px 0}
+.plist button.del{background:transparent;border:0;color:var(--bad);font-size:1.05rem;
+line-height:1;padding:9px 11px;margin-right:-11px;border-radius:8px}
+.plist button.del:hover{background:rgba(255,107,107,.14)}
 footer{color:var(--dim);font-size:.78rem;text-align:center;padding:2px 0 14px}
 footer a{color:inherit}
 </style></head><body><main>
@@ -1275,6 +1369,7 @@ const T={
   printerOff:'The virtual printer is not running.',
   noPrints:'No printouts yet. Try LPRINT from MBASIC.',
   page:' page', pages:' pages',
+  del:'Delete', confirmDel:w=>'Delete the printout from '+w+'?',
   older:n=>'There are '+n+' older ones in the printouts folder.'
 };
 let view='screen', active='', printer=true, printsKey='', off=false;
@@ -1282,7 +1377,7 @@ const $=id=>document.getElementById(id);
 async function api(p,opt){const r=await fetch(p,opt);return r.json();}
 function set(id,cls,txt){const e=$(id);e.className='item '+cls;e.querySelector('b span:last-child').textContent=txt;}
 function msg(t){$('msg').textContent=t||'';}
-function post(a){return api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:a})});}
+function post(a,extra){return api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({action:a},extra||{}))});}
 async function refresh(){
   if(off) return;
   try{
@@ -1346,12 +1441,20 @@ async function loadPrints(){
   if(!printer) note(T.printerOff);
   if(!r.items.length && printer) note(T.noPrints);
   for(const p of r.items){
-    const li=document.createElement('li'), a=document.createElement('a'), s=document.createElement('small');
+    const li=document.createElement('li'), a=document.createElement('a'), s=document.createElement('small'), x=document.createElement('button');
     a.href='/api/print/'+encodeURIComponent(p.name); a.target='_blank'; a.rel='noopener'; a.textContent=p.when;
     s.textContent=p.pages+(p.pages===1?T.page:T.pages)+' · '+p.kb+' KB';
-    li.appendChild(a); li.appendChild(s); ul.appendChild(li);
+    x.className='del'; x.textContent='✕'; x.title=T.del; x.setAttribute('aria-label',T.del+' '+p.when);
+    x.onclick=()=>delPrint(p);
+    li.appendChild(a); li.appendChild(s); li.appendChild(x); ul.appendChild(li);
   }
   if(r.total>r.items.length) note(T.older(r.total-r.items.length));
+}
+async function delPrint(p){
+  if(!confirm(T.confirmDel(p.when)))return;
+  try{const r=await post('print-delete',{name:p.name}); msg(r.ok?'':T.error+r.out);}
+  catch(e){msg(T.noConn);}
+  printsKey=''; loadPrints();
 }
 refresh(); loadView();
 setInterval(refresh,10000);

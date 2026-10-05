@@ -6,13 +6,13 @@ lang: es
 babel: "spanish,es-tabla,es-noshorthands,es-nolayout"
 papersize: a4
 publisher: "Retro Informática Paraguay"
-script-version: "1.2.0"
-script-date: "2026-10-04"
-manual-revision: "3"
-date: "4 de octubre de 2026"
+script-version: "1.3.0"
+script-date: "2026-10-05"
+manual-revision: "4"
+date: "5 de octubre de 2026"
 repo: "https://github.com/czayas/nabu-setup"
 channel: "https://www.youtube.com/@retroinfopy"
-footer: "NABU Setup 1.2.0 · Manual, revisión 3"
+footer: "NABU Setup 1.3.0 · Manual, revisión 4"
 labels:
   script: "Versión de NABU Setup"
   revision: "Revisión del manual"
@@ -39,7 +39,7 @@ Esto es lo que instala:
 
 NABU Setup es un proyecto independiente de Retro Informática Paraguay. No reemplaza al NABU Internet Adapter ni lo modifica: lo descarga del sitio oficial y lo deja listo para usar. No está afiliado a nabu.ca ni al autor del Internet Adapter.
 
-Este manual corresponde a NABU Setup 1.2.0, edición en español (`nabu-setup-es.sh`). El script y el manual también se publican en inglés.
+Este manual corresponde a NABU Setup 1.3.0, edición en español (`nabu-setup-es.sh`). El script y el manual también se publican en inglés.
 
 ## La NABU Personal Computer
 
@@ -215,7 +215,7 @@ Lo primero que hace es pedirte una **contraseña para el panel web**. Escríbela
 Después trabaja solo. En pantalla verás algo así:
 
 ```
-NABU Setup 1.2.0 (2026-10-04)
+NABU Setup 1.3.0 (2026-10-05)
 
 Contraseña para el panel web (usuario: nabu):
 Repítela:
@@ -394,8 +394,8 @@ Descarga del repositorio la última versión publicada de NABU Setup, en el mism
 
 ```
 Descargando https://raw.githubusercontent.com/czayas/nabu-setup/main/nabu-setup-es.sh
-Instalada: NABU Setup 1.2.0 (2026-10-04)
-Publicada: NABU Setup 1.2.0 (2026-10-04)
+Instalada: NABU Setup 1.3.0 (2026-10-05)
+Publicada: NABU Setup 1.3.0 (2026-10-05)
 Ya tienes la última versión. ¿Instalarla de nuevo? [s/N]
 ```
 
@@ -422,7 +422,7 @@ nabu version
 ```
 
 ```
-NABU Setup 1.2.0 (2026-10-04)
+NABU Setup 1.3.0 (2026-10-05)
 https://github.com/czayas/nabu-setup
 ```
 
@@ -459,7 +459,7 @@ La primera tarjeta resume el estado del servidor y se actualiza cada diez segund
 
 ## Impresiones
 
-Lista las impresiones de la impresora virtual, de la más nueva a la más antigua, con fecha, hora, cantidad de páginas y tamaño. Al tocar una, el PDF se abre en otra pestaña. El panel muestra las 50 más recientes; las anteriores siguen en la carpeta `~/nabu/printer`.
+Lista las impresiones de la impresora virtual, de la más nueva a la más antigua, con fecha, hora, cantidad de páginas y tamaño. Al tocar una, el PDF se abre en otra pestaña. La **X** roja que hay a la derecha de cada una la borra, después de pedir confirmación. El panel muestra las 50 más recientes; las anteriores siguen en la carpeta `~/nabu/printer`.
 
 ## Pantalla y Registro
 
@@ -542,6 +542,73 @@ Sirve para cualquier archivo de texto, incluso de otra unidad: `PIP LST:=D:DIR.D
 
 > **Nota.** En Cloud CP/M no funciona la combinación Ctrl-P, que en otras versiones de CP/M copia a la impresora todo lo que aparece en pantalla.
 
+## Imprimir desde WordStar
+
+Cloud CP/M incluye WordStar en la unidad A:, área de usuario 6. WordStar imprime en `LST:`, así que cada documento que imprimes termina convertido en un PDF.
+
+1. Desde `A:0>`, cambia de área de usuario e inicia el programa:
+
+    ```
+    USER 6
+    WS
+    ```
+
+2. En el menú inicial, pulsa `D` para abrir un documento y escribe su nombre, por ejemplo `D:CARTA.TXT`. El prefijo `D:` lo guarda en la unidad D: y no en A:, que pertenece a la nube.
+3. Escribe el texto. WordStar pasa solo al renglón siguiente: usa Enter (la tecla GO de la NABU) únicamente al final de cada párrafo.
+4. Guarda con `^KD`, que además vuelve al menú inicial.
+5. Pulsa `P`, escribe el nombre del documento y pulsa Esc en lugar de Enter. Así se omiten las preguntas y empieza la impresión.
+
+El signo `^` indica la tecla Ctrl: `^KD` es Ctrl-K y después la letra D.
+
+| Teclas | Acción |
+|---|---|
+| `^PB` | Activa y desactiva la negrita |
+| `^PS` | Activa y desactiva el subrayado |
+| `^PH` | Imprime el carácter siguiente encima del anterior |
+| `^B` | Reacomoda el párrafo después de una corrección |
+| `^KS` | Guarda y permite seguir escribiendo |
+| `^KD` | Guarda y vuelve al menú inicial |
+
+En el PDF se conservan los márgenes, la justificación del texto, la negrita, el subrayado y el número de página que WordStar agrega al pie.
+
+> **Nota.** La impresión desde WordStar se probó en una NABU real, con el WordStar que trae Cloud CP/M.
+
+## Acentos y eñe
+
+Los programas de CP/M trabajan con ASCII de 7 bits, que no tiene letras acentuadas. El recurso de la época es el de las máquinas de escribir: imprimir la letra y, encima, el acento. La impresora virtual reconoce esa sobreimpresión y dibuja una sola letra acentuada. La letra queda así también en el texto del PDF, de modo que se puede buscar y copiar.
+
+En WordStar, `^PH` hace que el carácter siguiente se imprima encima del anterior:
+
+| Para obtener | Escribe |
+|---|---|
+| á é í ó ú | la vocal, `^PH` y `'` |
+| ü | `u`, `^PH` y `"` |
+| ñ | `n`, `^PH` y `-` |
+| Ñ | `N`, `^PH` y `-` |
+
+En la pantalla de WordStar no aparece la letra acentuada, sino algo como `n^H-`. El resultado se ve al imprimir.
+
+El teclado de la NABU no tiene la tecla `~`. Por eso la impresora también forma la eñe con un guion o con `^` sobre la `n`. Varios guiones seguidos sobre un texto siguen siendo tachado. Si escribes desde un cliente telnet, `n`, `^PH` y `~` da el mismo resultado.
+
+Estas son todas las marcas que reconoce, sobre minúsculas y mayúsculas:
+
+| Marca | Acento | Letras |
+|---|---|---|
+| `'` | Agudo | á é í ó ú ý |
+| `` ` `` | Grave | à è ì ò ù |
+| `^` | Circunflejo | â ê î ô û |
+| `~` | Tilde | ñ ã õ |
+| `"` | Diéresis | ä ë ï ö ü ÿ |
+| `,` | Cedilla | ç |
+
+El mismo método sirve desde otros programas, con el carácter de retroceso. Por ejemplo, en MBASIC:
+
+```
+LPRINT "Asuncio";CHR$(8);"'n, Espan";CHR$(8);"-a"
+```
+
+> **Nota.** Los signos `¿` y `¡` no se pueden formar por sobreimpresión.
+
 ## Qué entiende la impresora
 
 La página tiene 80 columnas y 66 líneas, como una hoja de 11 pulgadas a 10 caracteres por pulgada. Las líneas más largas continúan en la línea siguiente.
@@ -557,11 +624,7 @@ La página tiene 80 columnas y 66 líneas, como una hoja de 11 pulgadas a 10 car
 | `ESC @` | Reinicia la impresora |
 | Otros códigos de control Epson | Se descartan sin ensuciar la página |
 
-Además reconoce la **sobreimpresión**, el recurso que usan procesadores de texto como WordStar en impresoras simples: vuelven al comienzo de la línea e imprimen encima. El mismo texto dos veces queda en negrita; guiones bajos, subrayado; guiones, tachado.
-
-> **Importante.** La sobreimpresión se probó con datos simulados. La impresión desde WordStar en una NABU real todavía no fue verificada.
-
-Las letras acentuadas y la ñ no existen en el juego de caracteres de la impresora, que es ASCII de 7 bits.
+Además reconoce la **sobreimpresión**, el recurso que usan procesadores de texto como WordStar en impresoras simples: vuelven al comienzo de la línea e imprimen encima. El mismo texto dos veces queda en negrita; guiones bajos, subrayado; guiones, tachado; un acento sobre una letra, la letra acentuada.
 
 ## Dónde quedan los PDF
 
@@ -575,7 +638,7 @@ Hay tres cosas que conviene saber sobre esta carpeta:
 
 - **No entra en los backups**, para que sigan siendo livianos.
 - **No se borra al actualizar** el IA ni al reinstalar NABU Setup.
-- **No se limpia sola.** Para borrar impresiones viejas, elimina los archivos; por ejemplo, las de septiembre de 2026:
+- **No se limpia sola.** Puedes borrar impresiones una por una desde el panel web, o eliminar los archivos; por ejemplo, las de septiembre de 2026:
 
 ```
 rm ~/nabu/printer/print-2026-09-*.pdf
@@ -802,3 +865,4 @@ La licencia cubre solamente NABU Setup. El NABU Internet Adapter es un programa 
 | 1 | 2026-10-03 | 1.0.0 | Primera publicación |
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: comando `nabu poweroff` y botón **Apagar la Pi** en el panel web |
 | 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` para actualizar NABU Setup |
+| 4 | 2026-10-05 | 1.3.0 | Letras acentuadas y eñe en la impresora virtual, impresión desde WordStar y borrado de impresiones desde el panel web |

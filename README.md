@@ -4,7 +4,7 @@
 
 NABU Setup is an installation script that turns a Raspberry Pi into a small server for the [NABU Personal Computer](https://en.wikipedia.org/wiki/NABU_Network). It downloads the official [NABU Internet Adapter](https://nabu.ca/downloads-nabu-internet-adapter), runs it as a service, and adds the tools to manage it from a terminal or a phone.
 
-Current version: **1.2.0**, released on 2026-10-04. See the [changelog](CHANGELOG.md).
+Current version: **1.3.0**, released on 2026-10-05. See the [changelog](CHANGELOG.md).
 
 ![The parts of a NABU server installed with NABU Setup](docs/img/architecture-en.png)
 
@@ -13,7 +13,7 @@ Current version: **1.2.0**, released on 2026-10-04. See the [changelog](CHANGELO
 - **The NABU Internet Adapter as a service.** It starts when the Pi boots and restarts if it closes. It runs inside a `tmux` session, so you can open its text interface over SSH and leave it running.
 - **The `nabu` command**, to check, start, stop, back up, update, and safely shut down the server.
 - **A web panel** on port 80, password protected, with status indicators, control buttons (including a safe shutdown), a live view of the Internet Adapter's screen, and the service log.
-- **A virtual printer.** Whatever the NABU prints to the `LST:` device from Cloud CP/M becomes a PDF that looks like dot-matrix output on continuous paper. Bold, underline, and WordStar-style overstriking are supported.
+- **A virtual printer.** Whatever the NABU prints to the `LST:` device from Cloud CP/M becomes a PDF that looks like dot-matrix output on continuous paper. Bold, underline, WordStar-style overstriking, and accented letters are supported.
 - **Backups** of the CP/M drives, local programs, and settings as .zip files. The latest five are kept.
 
 Everything besides the Internet Adapter is plain Bash and Python, with no libraries beyond the standard ones.

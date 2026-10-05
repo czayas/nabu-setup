@@ -4,6 +4,13 @@
 
 NABU Setup y su manual llevan numeraciones separadas. El script usa números de versión (como 1.2.0); el manual usa números de revisión e indica a qué versión del script corresponde.
 
+## NABU Setup 1.3.0 (2026-10-05)
+
+- La impresora virtual forma letras acentuadas: un acento impreso sobre una letra, como hace WordStar con `^PH`, se dibuja como una sola letra (á, é, ñ, ü, ç y las demás de Latin-1) y queda así en el texto del PDF.
+- La eñe también se puede escribir con un guion o con `^` sobre la `n`, porque el teclado de la NABU no tiene la tecla `~`.
+- Nuevo botón en el panel web para borrar cada impresión.
+- La impresión desde WordStar quedó verificada en una NABU real.
+
 ## NABU Setup 1.2.0 (2026-10-04)
 
 - Nuevo comando `nabu setup`: descarga la última versión publicada de NABU Setup, la compara con la instalada y la instala.
@@ -29,6 +36,7 @@ Primera versión publicada.
 
 | Revisión | Fecha | NABU Setup | Cambios |
 |---|---|---|---|
+| 4 | 2026-10-05 | 1.3.0 | Acentos y eñe, impresión desde WordStar y borrado de impresiones |
 | 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` |
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: `nabu poweroff` y el botón del panel |
 | 1 | 2026-10-03 | 1.0.0 | Primera publicación |
