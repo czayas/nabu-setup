@@ -48,7 +48,7 @@ There are two editions with the same code and different languages: `nabu-setup-e
 | `nabu status` | Service, RS-422 adapter, virtual printer, temperature, and power supply |
 | `nabu list` | Service log and Internet Adapter errors |
 | `nabu start`, `stop`, `restart` | Control the Internet Adapter |
-| `nabu backup` | Saves a backup to `~/backups` |
+| `nabu backup` | Saves a backup to `~/nabu/backups` |
 | `nabu update` | Updates the Internet Adapter, after making a backup |
 | `nabu setup` | Updates NABU Setup itself to the latest published release |
 | `nabu poweroff` | Shuts the Pi down safely before you cut the power |

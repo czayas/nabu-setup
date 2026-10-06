@@ -48,7 +48,7 @@ Hay dos ediciones con el mismo código y distinto idioma: `nabu-setup-es.sh` (es
 | `nabu status` | Servicio, adaptador RS-422, impresora virtual, temperatura y alimentación |
 | `nabu list` | Registro del servicio y errores del Internet Adapter |
 | `nabu start`, `stop`, `restart` | Controlan el Internet Adapter |
-| `nabu backup` | Guarda un backup en `~/backups` |
+| `nabu backup` | Guarda un backup en `~/nabu/backups` |
 | `nabu update` | Actualiza el Internet Adapter, después de hacer un backup |
 | `nabu setup` | Actualiza el propio NABU Setup a la última versión publicada |
 | `nabu poweroff` | Apaga la Pi de forma segura antes de cortar la corriente |

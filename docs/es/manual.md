@@ -370,8 +370,8 @@ nabu backup
 ```
 
 ```
-Backup creado: /home/nabu/backups/nabu-backup-2026-10-03-1811.zip (412 archivos, 5230 KB)
-Backups guardados en /home/nabu/backups: 3 (máximo 5)
+Backup creado: /home/nabu/nabu/backups/nabu-backup-2026-10-03-1811.zip (9 archivos, 31 KB)
+Backups guardados en /home/nabu/nabu/backups: 3 (máximo 5)
 ```
 
 El contenido de los backups y la forma de restaurarlos se explican en la sección [Backups](#backups).
@@ -727,7 +727,9 @@ Un backup es un archivo .zip con tus datos del IA:
 
 Quedan fuera el propio programa del IA, la caché de descargas, los archivos de registro y los PDF de la impresora virtual. Todo eso se puede volver a descargar o a generar.
 
-Los backups se guardan en `~/backups` con la fecha y la hora en el nombre. Se conservan los cinco más recientes y los anteriores se borran solos.
+Los backups se guardan en `~/nabu/backups` con la fecha y la hora en el nombre. Se conservan los cinco más recientes y los anteriores se borran solos. Esa carpeta tampoco entra en los backups.
+
+> **Nota.** Hasta la versión 1.2.0 los backups se guardaban en `~/backups`. Al instalar la 1.3.0, los que haya en esa carpeta se mudan solos a la nueva.
 
 ## Cuándo se crean
 
@@ -744,7 +746,7 @@ NABU Setup no programa backups periódicos. Si quieres uno por semana, agrega un
 > **Importante.** Los backups están en la misma tarjeta microSD que los datos originales. Si la tarjeta falla, se pierden los dos. Cada tanto, descarga uno desde el panel o cópialo a tu computadora:
 
 ```
-scp "nabu@nabu.local:backups/*.zip" .
+scp "nabu@nabu.local:nabu/backups/*.zip" .
 ```
 
 ## Restaurar un backup
@@ -753,7 +755,7 @@ Detén el IA, descomprime el backup en tu carpeta personal y vuelve a iniciarlo:
 
 ```
 nabu stop
-unzip -o ~/backups/nabu-backup-2026-10-03-1811.zip -d ~
+unzip -o ~/nabu/backups/nabu-backup-2026-10-03-1811.zip -d ~
 nabu start
 ```
 
@@ -824,7 +826,7 @@ Si el problema es del propio Internet Adapter o de un programa de la NABU, los l
 | `~/nabu/NABU Internet Adapter/Cache/` | Descargas de la nube |
 | `~/nabu/printer/` | PDF de la impresora virtual, sus datos originales (`.lst`) y la elección de letra y papel |
 | `~/nabu/ia-error.log` | Errores del IA |
-| `~/backups/` | Backups |
+| `~/nabu/backups/` | Backups |
 | `/usr/local/bin/nabu` | Comando de administración |
 | `/usr/local/lib/nabu/` | Panel web, impresora virtual y herramienta de backup |
 | `/etc/nabu-ia.conf` | Rutas, versión y fecha de NABU Setup |
@@ -868,7 +870,7 @@ sudo rm -r /usr/local/lib/nabu
 sudo systemctl daemon-reload
 ```
 
-Para borrar también el IA, tus archivos de CP/M, las impresiones y los backups, elimina las carpetas `~/nabu` y `~/backups`. Esa parte no se puede deshacer.
+Para borrar también el IA, tus archivos de CP/M, las impresiones y los backups, elimina la carpeta `~/nabu`. Esa parte no se puede deshacer.
 
 # Recursos y créditos
 
@@ -911,4 +913,4 @@ La licencia cubre solamente NABU Setup. El NABU Internet Adapter es un programa 
 | 1 | 2026-10-03 | 1.0.0 | Primera publicación |
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: comando `nabu poweroff` y botón **Apagar la Pi** en el panel web |
 | 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` para actualizar NABU Setup |
-| 4 | 2026-10-05 | 1.3.0 | Letras acentuadas y eñe en la impresora virtual, impresión desde WordStar, elección de letra y papel, y borrado y reimpresión desde el panel web |
+| 4 | 2026-10-05 | 1.3.0 | Letras acentuadas y eñe en la impresora virtual, impresión desde WordStar, elección de letra y papel, borrado y reimpresión desde el panel web, y backups en `~/nabu/backups` |

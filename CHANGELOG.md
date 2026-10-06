@@ -11,6 +11,7 @@ NABU Setup and its manual are versioned separately. The script uses version numb
 - The virtual printer has two new letter-quality typefaces, *Serif* and *Sans serif*, besides the dot-matrix one, and it can print on blank paper as well as on continuous form. You choose them on the web panel.
 - Each printout keeps its original data, and a new button on the panel redoes it with the chosen typeface and paper, without printing again from the NABU.
 - New button on the web panel to delete each printout.
+- Backups are now saved in `~/nabu/backups`. When this release is installed, any backups in `~/backups` are moved to the new folder automatically.
 - Printing from WordStar is now verified on a real NABU.
 - Fix: the `PAPER = False` option of earlier releases did not produce the PDF. The paper choice on the panel replaces it.
 
@@ -39,7 +40,7 @@ First public release.
 
 | Revision | Date | NABU Setup | Changes |
 |---|---|---|---|
-| 4 | 2026-10-05 | 1.3.0 | Accented letters, printing from WordStar, typeface and paper, deleting and redoing printouts |
+| 4 | 2026-10-05 | 1.3.0 | Accented letters, printing from WordStar, typeface and paper, deleting and redoing printouts, backups folder |
 | 3 | 2026-10-04 | 1.2.0 | `nabu setup` command |
 | 2 | 2026-10-04 | 1.1.0 | Safe shutdown: `nabu poweroff` and the panel button |
 | 1 | 2026-10-03 | 1.0.0 | First release |

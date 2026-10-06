@@ -67,6 +67,7 @@ echo
 U="$USER"
 DIR="$HOME/nabu"
 PRINT_DIR="$DIR/printer"
+BACKUP_DIR="$DIR/backups"
 PORT=80
 
 # El Internet Adapter está hecho en .NET, que no funciona en procesadores ARMv6
@@ -165,6 +166,7 @@ NABU_ZIP="$ZIP"
 NABU_URL="$URL"
 NABU_PORT="$PORT"
 NABU_PRINT_DIR="$PRINT_DIR"
+NABU_BACKUP_DIR="$BACKUP_DIR"
 NABU_SETUP_VERSION="$NABU_SETUP_VERSION"
 NABU_SETUP_DATE="$NABU_SETUP_DATE"
 NABU_SETUP_LANG="$NABU_SETUP_LANG"
@@ -210,6 +212,7 @@ sudo tee /usr/local/bin/nabu >/dev/null <<'EOF'
 # nabu — administración del servidor NABU (parte de NABU Setup)
 source /etc/nabu-ia.conf
 PRINT_DIR="${NABU_PRINT_DIR:-$NABU_DIR/printer}"
+BACKUP_DIR="${NABU_BACKUP_DIR:-$NABU_DIR/backups}"
 VERSION="NABU Setup ${NABU_SETUP_VERSION:-?} (${NABU_SETUP_DATE:-?})"
 
 usage() {
@@ -225,8 +228,8 @@ Uso: nabu [comando]
   nabu start      Inicia el Internet Adapter
   nabu stop       Detiene el Internet Adapter
   nabu restart    Reinicia el Internet Adapter
-  nabu backup     Guarda un backup .zip de CP/M y la configuración en ~/backups
-                  (se conservan los últimos 5)
+  nabu backup     Guarda un backup .zip de CP/M y la configuración en
+                  ${BACKUP_DIR/#$HOME/\~} (se conservan los últimos 5)
   nabu update     Descarga la última versión del IA (hace un backup antes)
   nabu setup      Descarga e instala la última versión publicada de NABU Setup
   nabu poweroff   Apaga la Pi de forma segura; después puedes cortar la corriente
@@ -339,13 +342,12 @@ sudo tee /usr/local/lib/nabu/nabu-backup.py >/dev/null <<'PYEOF'
 #!/usr/bin/env python3
 """Crea un backup .zip de los datos del Internet Adapter: unidades de
 CP/M (Store/), programas locales y configuración. Excluye el programa, la
-caché, los logs y los PDF de la impresora virtual.
-Guarda en ~/backups y conserva solo los últimos KEEP archivos."""
+caché, los logs, las impresiones y los backups anteriores.
+Guarda en ~/nabu/backups y conserva solo los últimos KEEP archivos."""
 import datetime, glob, os, sys, zipfile
 
 KEEP = 5
 CONF = os.environ.get("NABU_IA_CONF", "/etc/nabu-ia.conf")
-DEST = os.environ.get("NABU_BACKUP_DIR", os.path.expanduser("~/backups"))
 EXCL_DIRS = {"Cache"}
 EXCL_FILES = {"CommLog.txt", "Console.txt", "ia-error.log", "libdl.so",
               "README.TXT", "SERVICE.TXT", "tmux.conf"}
@@ -365,22 +367,24 @@ def main():
     c = conf()
     binpath = c["NABU_BIN"]
     base = os.path.dirname(binpath)
-    # Las impresiones no entran en el backup aunque estén dentro de la carpeta
+    # Las impresiones y los backups quedan fuera aunque estén dentro de la carpeta
     prints = os.path.abspath(c.get("NABU_PRINT_DIR") or os.path.join(base, "printer"))
+    dest = os.path.abspath(os.environ.get("NABU_BACKUP_DIR") or c.get("NABU_BACKUP_DIR")
+                           or os.path.join(base, "backups"))
     excl = EXCL_FILES | {os.path.basename(binpath)}
-    os.makedirs(DEST, exist_ok=True)
+    os.makedirs(dest, exist_ok=True)
 
     stamp = datetime.datetime.now().strftime("%Y-%m-%d-%H%M")
-    out = os.path.join(DEST, f"nabu-backup-{stamp}.zip")
+    out = os.path.join(dest, f"nabu-backup-{stamp}.zip")
     if os.path.exists(out):  # dos backups en el mismo minuto
-        out = os.path.join(DEST, f"nabu-backup-{stamp}{datetime.datetime.now():%S}.zip")
+        out = os.path.join(dest, f"nabu-backup-{stamp}{datetime.datetime.now():%S}.zip")
     tmp = out + ".part"
 
     n = 0
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
         for root, dirs, files in os.walk(base):
             dirs[:] = sorted(d for d in dirs if d not in EXCL_DIRS
-                             and os.path.abspath(os.path.join(root, d)) != prints)
+                             and os.path.abspath(os.path.join(root, d)) not in (prints, dest))
             rel_root = os.path.relpath(root, base)
             # carpetas vacías (unidades y áreas de usuario sin archivos)
             if rel_root != "." and not files:
@@ -394,13 +398,13 @@ def main():
                 n += 1
     os.replace(tmp, out)
 
-    olds = sorted(glob.glob(os.path.join(DEST, "nabu-backup-*.zip")))
+    olds = sorted(glob.glob(os.path.join(dest, "nabu-backup-*.zip")))
     for old in olds[:-KEEP]:
         os.remove(old)
 
     size = os.path.getsize(out) / 1024
     print(f"Backup creado: {out} ({n} archivos, {size:.0f} KB)")
-    print(f"Backups guardados en {DEST}: {min(len(olds), KEEP)} (máximo {KEEP})")
+    print(f"Backups guardados en {dest}: {min(len(olds), KEEP)} (máximo {KEEP})")
     return out
 
 
@@ -412,6 +416,13 @@ if __name__ == "__main__":
         sys.exit(1)
 PYEOF
 sudo chmod 755 /usr/local/lib/nabu/nabu-backup.py
+mkdir -p "$BACKUP_DIR"
+# Hasta la versión 1.2.0 los backups se guardaban en ~/backups: se mudan
+if compgen -G "$HOME/backups/nabu-backup-*.zip" >/dev/null; then
+  echo "==> Moviendo los backups de ~/backups a ${BACKUP_DIR/#$HOME/\~}"
+  mv -n "$HOME"/backups/nabu-backup-*.zip "$BACKUP_DIR"/
+  rmdir "$HOME/backups" 2>/dev/null || true
+fi
 
 echo "==> Instalando impresora virtual (LST.TXT a PDF)"
 sudo tee /usr/local/lib/nabu/nabu-print.py >/dev/null <<'PYEOF'
@@ -1297,7 +1308,8 @@ NO_PRINT = "Esa impresión ya no existe."
 NO_RAW = "No están los datos originales de esa impresión; no se puede rehacer."
 BAD_SETTING = "Letra o papel desconocidos."
 WHEN = "{d}/{mo}/{y} {h}:{mi}:{s}"     # fecha y hora de cada impresión en la lista
-BACKUPS = os.environ.get("NABU_BACKUP_DIR", os.path.expanduser("~/backups"))
+BACKUPS = (os.environ.get("NABU_BACKUP_DIR") or IA.get("NABU_BACKUP_DIR")
+           or os.path.expanduser("~/nabu/backups"))
 BACKUP_RE = re.compile(r"nabu-backup-[0-9-]+\.zip")
 PRINTS = (os.environ.get("NABU_PRINT_DIR") or IA.get("NABU_PRINT_DIR")
           or os.path.expanduser("~/nabu/printer"))
