@@ -6,13 +6,13 @@ lang: en-US
 babel: "american"
 papersize: letter
 publisher: "Retro Informática Paraguay"
-script-version: "1.2.0"
-script-date: "2026-10-04"
-manual-revision: "3"
-date: "October 4, 2026"
+script-version: "1.3.0"
+script-date: "2026-10-05"
+manual-revision: "4"
+date: "October 5, 2026"
 repo: "https://github.com/czayas/nabu-setup"
 channel: "https://www.youtube.com/@retroinfopy"
-footer: "NABU Setup 1.2.0 · Manual, revision 3"
+footer: "NABU Setup 1.3.0 · Manual, revision 4"
 labels:
   script: "NABU Setup version"
   revision: "Manual revision"
@@ -32,14 +32,14 @@ This is what it installs:
 - **The NABU Internet Adapter**, the program that serves the NABU. It runs as a system service: it starts on its own when the Pi boots, and it restarts if it closes.
 - **The `nabu` command**, for managing the server from an SSH terminal.
 - **A password-protected web panel**, for checking and controlling the server from a browser on a computer or a phone.
-- **A virtual printer**: whatever the NABU sends to the printer from CP/M becomes a PDF that looks like continuous paper.
+- **A virtual printer**: whatever the NABU sends to the printer from CP/M becomes a PDF, in a dot-matrix or letter-quality typeface, on continuous or blank paper.
 - **Backups**, as .zip files, of your CP/M files and of the settings.
 
 ![The parts of a NABU server installed with NABU Setup.](../img/architecture-en.png)
 
 NABU Setup is an independent project by Retro Informática Paraguay. It neither replaces nor modifies the NABU Internet Adapter: it downloads it from the official site and gets it ready to use. It is not affiliated with nabu.ca or with the author of the Internet Adapter.
 
-This manual covers NABU Setup 1.2.0, English edition (`nabu-setup-en.sh`). The script and the manual are also published in Spanish.
+This manual covers NABU Setup 1.3.0, English edition (`nabu-setup-en.sh`). The script and the manual are also published in Spanish.
 
 ## The NABU Personal Computer
 
@@ -215,7 +215,7 @@ The first thing it does is ask you for a **password for the web panel**. Type it
 After that it works on its own. You will see something like this:
 
 ```
-NABU Setup 1.2.0 (2026-10-04)
+NABU Setup 1.3.0 (2026-10-05)
 
 Password for the web panel (user: nabu):
 Type it again:
@@ -370,8 +370,8 @@ nabu backup
 ```
 
 ```
-Backup created: /home/nabu/backups/nabu-backup-2026-10-03-1811.zip (412 files, 5230 KB)
-Backups kept in /home/nabu/backups: 3 (maximum 5)
+Backup created: /home/nabu/nabu/backups/nabu-backup-2026-10-03-1811.zip (9 files, 31 KB)
+Backups kept in /home/nabu/nabu/backups: 3 (maximum 5)
 ```
 
 What backups contain and how to restore them is explained in the [Backups](#backups) section.
@@ -394,8 +394,8 @@ It downloads the latest published NABU Setup release from the repository, in the
 
 ```
 Downloading https://raw.githubusercontent.com/czayas/nabu-setup/main/nabu-setup-en.sh
-Installed: NABU Setup 1.2.0 (2026-10-04)
-Published: NABU Setup 1.2.0 (2026-10-04)
+Installed: NABU Setup 1.3.0 (2026-10-05)
+Published: NABU Setup 1.3.0 (2026-10-05)
 You already have the latest version. Install it again? [y/N]
 ```
 
@@ -422,7 +422,7 @@ nabu version
 ```
 
 ```
-NABU Setup 1.2.0 (2026-10-04)
+NABU Setup 1.3.0 (2026-10-05)
 https://github.com/czayas/nabu-setup
 ```
 
@@ -459,7 +459,19 @@ The first card sums up the state of the server and refreshes every ten seconds. 
 
 ## Printouts
 
-This lists the virtual printer's printouts, newest first, with the date, time, page count, and size. Tap one and the PDF opens in another tab. The panel shows the 50 most recent; older ones remain in the `~/nabu/printer` folder.
+At the top are the virtual printer's two options:
+
+- **Typeface**: *Dot matrix*, *Serif*, or *Sans serif*.
+- **Paper**: *Blank* or *Continuous form*.
+
+An option is saved as soon as you tap it, and it applies to whatever is printed from then on. The [Typeface and paper](#typeface-and-paper) section shows each one.
+
+Below is the list of printouts, newest first, with the date, time, page count, and size. Tap one and the PDF opens in another tab. To the right of each one there are two buttons:
+
+- The **circular arrow** redoes that printout with the typeface and paper chosen at that moment, without printing again from the NABU. The printout keeps its date and time.
+- The red **X** deletes it, after asking for confirmation.
+
+The panel shows the 50 most recent printouts; older ones remain in the `~/nabu/printer` folder.
 
 ## Screen and Log
 
@@ -488,7 +500,7 @@ The panel uses unencrypted HTTP. It is meant for your home network.
 
 # The virtual printer
 
-Cloud CP/M has a printer device, `LST:`. The IA saves whatever the NABU sends to that device in a text file called `LST.TXT`. NABU Setup's virtual printer watches that file and turns each print job into a PDF that looks like a sheet of continuous paper fresh out of a dot-matrix printer.
+Cloud CP/M has a printer device, `LST:`. The IA saves whatever the NABU sends to that device in a text file called `LST.TXT`. NABU Setup's virtual printer watches that file and turns each print job into a PDF. At first it looks like a sheet of continuous paper fresh out of a dot-matrix printer; letter-quality typefaces and blank paper are also available.
 
 ![Part of a page produced by the virtual printer.](../img/printout-en.png)
 
@@ -497,7 +509,7 @@ Cloud CP/M has a printer device, `LST:`. The IA saves whatever the NABU sends to
 1. A program on the NABU prints to `LST:`.
 2. The IA appends that text to the end of `LST.TXT`, inside its `Store` folder.
 3. Once five seconds go by with no new text, the virtual printer considers the print job finished.
-4. It creates a PDF in `~/nabu/printer` with the date and time in its name, for example `print-2026-10-03-094107.pdf`.
+4. It creates a PDF in `~/nabu/printer` with the date and time in its name, for example `print-2026-10-03-094107.pdf`, using the typeface and paper chosen on the web panel.
 5. The printout appears in the *Printouts* section of the web panel.
 
 The printer never modifies `LST.TXT`: it only remembers how far it has read.
@@ -542,6 +554,104 @@ It works with any text file, even one on another drive: `PIP LST:=D:DIR.DIR`.
 
 > **Note.** Cloud CP/M does not support the Ctrl-P key combination, which in other versions of CP/M echoes everything shown on screen to the printer.
 
+## Printing from WordStar
+
+Cloud CP/M includes WordStar on drive A:, user area 6. WordStar prints to `LST:`, so every document you print ends up as a PDF.
+
+1. From `A:0>`, switch user areas and start the program:
+
+    ```
+    USER 6
+    WS
+    ```
+
+2. On the opening menu, press `D` to open a document and type its name, for example `D:LETTER.TXT`. The `D:` prefix saves it on drive D: instead of A:, which belongs to the cloud.
+3. Type the text. WordStar wraps to the next line on its own: press Enter (the GO key on the NABU) only at the end of each paragraph.
+4. Save with `^KD`, which also returns to the opening menu.
+5. Press `P`, type the document's name, and press Esc instead of Enter. That skips the questions and starts printing.
+
+The `^` sign stands for the Ctrl key: `^KD` is Ctrl-K followed by the letter D.
+
+| Keys | Action |
+|---|---|
+| `^PB` | Turns bold on and off |
+| `^PS` | Turns underline on and off |
+| `^PH` | Prints the next character on top of the previous one |
+| `^B` | Reforms the paragraph after an edit |
+| `^KS` | Saves and lets you keep typing |
+| `^KD` | Saves and returns to the opening menu |
+
+The PDF keeps the margins, the justified text, bold, underline, and the page number WordStar adds at the bottom.
+
+> **Note.** Printing from WordStar was tested on a real NABU, with the WordStar that ships with Cloud CP/M.
+
+## Accented letters
+
+CP/M programs work in 7-bit ASCII, which has no accented letters. The technique of the day is the typewriter's: print the letter and then the accent on top of it. The virtual printer recognizes that overstrike and draws a single accented letter. The letter is stored that way in the text of the PDF too, so you can search for it and copy it.
+
+In WordStar, `^PH` makes the next character print on top of the previous one:
+
+| To get | Type |
+|---|---|
+| á é í ó ú | the vowel, `^PH`, and `'` |
+| ü | `u`, `^PH`, and `"` |
+| ñ | `n`, `^PH`, and `-` |
+| Ñ | `N`, `^PH`, and `-` |
+
+WordStar's screen does not show the accented letter, but something like `n^H-`. You see the result when you print.
+
+The NABU keyboard has no `~` key. That is why the printer also makes an ñ from a hyphen or a `^` over the `n`. A run of hyphens over a piece of text is still strikeout. If you type from a telnet client, `n`, `^PH`, and `~` gives the same result.
+
+These are all the marks it recognizes, over lowercase and capital letters:
+
+| Mark | Accent | Letters |
+|---|---|---|
+| `'` | Acute | á é í ó ú ý |
+| `` ` `` | Grave | à è ì ò ù |
+| `^` | Circumflex | â ê î ô û |
+| `~` | Tilde | ñ ã õ |
+| `"` | Diaeresis | ä ë ï ö ü ÿ |
+| `,` | Cedilla | ç |
+
+The same method works from other programs, using the backspace character. For example, in MBASIC:
+
+```
+LPRINT "Asuncio";CHR$(8);"'n, Espan";CHR$(8);"-a"
+```
+
+> **Note.** The `¿` and `¡` signs cannot be made by overstriking.
+
+## Typeface and paper
+
+The virtual printer has three typefaces and two kinds of paper. You choose them in the *Printouts* section of the web panel, and they apply to the printouts that follow.
+
+![The three typefaces: dot matrix and serif on continuous form, and sans serif on blank paper.](../img/typefaces-en.png)
+
+| Typeface | What it looks like |
+|---|---|
+| Dot matrix | The draft typeface of a 9-pin printer. This is the initial one |
+| Serif | Letter quality, with serifs, like a typewriter's |
+| Sans serif | Letter quality, without serifs |
+
+| Paper | What it looks like |
+|---|---|
+| Continuous form | A 9.5 by 11 inch sheet with green bars and sprocket-hole strips. This is the initial one |
+| Blank | A plain letter-size sheet, 8.5 by 11 inches |
+
+All three typefaces have the same width, 10 characters per inch, so columns and justified text come out the same with any of them. The letter-quality ones imitate a 24-pin printer: they are made of smaller, overlapping dots that only show when you zoom far into the page.
+
+### Redoing a printout
+
+Next to each PDF, the printer keeps the data exactly as the NABU sent it, in a file with the same name and the `.lst` extension. With that data, the circular arrow on the web panel redoes the printout with the typeface and paper chosen at that moment. There is no need to print again from the NABU.
+
+You can do the same from a terminal:
+
+```
+python3 /usr/local/lib/nabu/nabu-print.py --reprint print-2026-10-03-094107.pdf
+```
+
+> **Note.** Printouts made with a release earlier than 1.3.0 do not have that data, so they do not show the arrow.
+
 ## What the printer understands
 
 The page is 80 columns by 66 lines, like an 11-inch sheet at 10 characters per inch. Longer lines wrap onto the next line.
@@ -557,15 +667,11 @@ The page is 80 columns by 66 lines, like an 11-inch sheet at 10 characters per i
 | `ESC @` | Resets the printer |
 | Other Epson control codes | Discarded without cluttering the page |
 
-It also recognizes **overstriking**, the technique word processors such as WordStar use on simple printers: they return to the start of the line and print on top of it. The same text twice comes out bold; underscores, underlined; hyphens, struck out.
-
-> **Important.** Overstriking was tested with simulated data. Printing from WordStar on a real NABU has not been verified yet.
-
-Accented letters do not exist in the printer's character set, which is 7-bit ASCII.
+It also recognizes **overstriking**, the technique word processors such as WordStar use on simple printers: they return to the start of the line and print on top of it. The same text twice comes out bold; underscores, underlined; hyphens, struck out; an accent over a letter, the accented letter.
 
 ## Where the PDFs are kept
 
-In the `~/nabu/printer` folder on the Pi. Besides opening them from the panel, you can copy them to your computer:
+In the `~/nabu/printer` folder on the Pi, each one next to the `.lst` file with its original data. Besides opening them from the panel, you can copy them to your computer:
 
 ```
 scp "nabu@nabu.local:nabu/printer/*.pdf" .
@@ -575,10 +681,10 @@ There are three things worth knowing about this folder:
 
 - **It is not included in backups**, so they stay small.
 - **It is not deleted when you update** the IA or reinstall NABU Setup.
-- **It does not clean itself up.** To remove old printouts, delete the files; for example, the ones from September 2026:
+- **It does not clean itself up.** You can delete printouts one at a time from the web panel, or delete the files; for example, the ones from September 2026, along with their original data:
 
 ```
-rm ~/nabu/printer/print-2026-09-*.pdf
+rm ~/nabu/printer/print-2026-09-*
 ```
 
 ## Settings
@@ -588,7 +694,6 @@ The options are at the top of the file `/usr/local/lib/nabu/nabu-print.py`:
 | Option | Original value | What it is for |
 |---|---|---|
 | `WAIT` | `5` | Seconds without new text before a print job is considered finished |
-| `PAPER` | `True` | With `False`, the sheet is plain and letter-size, with no bars or sprocket holes |
 | `COLS` | `80` | Columns per line |
 | `LPP` | `66` | Lines per page |
 
@@ -600,9 +705,11 @@ sudo systemctl restart nabu-print
 
 > **Note.** When you install a new release of NABU Setup, this file is replaced and the settings go back to their original values.
 
+The typeface and the paper are not among these options: you choose them on the web panel, and they are saved in `~/nabu/printer/.settings.json`, which does not change when you install a new release.
+
 ## Converting a file by hand
 
-The same program converts any text file into a PDF:
+The same program converts any text file into a PDF, with the typeface and paper chosen on the web panel:
 
 ```
 python3 /usr/local/lib/nabu/nabu-print.py input.txt output.pdf
@@ -620,7 +727,9 @@ A backup is a .zip file with your IA data:
 
 Left out are the IA program itself, the download cache, the log files, and the virtual printer's PDFs. All of that can be downloaded or generated again.
 
-Backups are saved in `~/backups` with the date and time in their name. The five most recent are kept, and older ones are deleted automatically.
+Backups are saved in `~/nabu/backups` with the date and time in their name. The five most recent are kept, and older ones are deleted automatically. That folder is not included in backups either.
+
+> **Note.** Up to release 1.2.0, backups were saved in `~/backups`. When you install 1.3.0, any backups in that folder are moved to the new one automatically.
 
 ## When they are created
 
@@ -637,7 +746,7 @@ NABU Setup does not schedule periodic backups. If you want one a week, add a lin
 > **Important.** The backups are on the same microSD card as the original data. If the card fails, both are lost. Every so often, download one from the panel or copy it to your computer:
 
 ```
-scp "nabu@nabu.local:backups/*.zip" .
+scp "nabu@nabu.local:nabu/backups/*.zip" .
 ```
 
 ## Restoring a backup
@@ -646,7 +755,7 @@ Stop the IA, unzip the backup into your home folder, and start it again:
 
 ```
 nabu stop
-unzip -o ~/backups/nabu-backup-2026-10-03-1811.zip -d ~
+unzip -o ~/nabu/backups/nabu-backup-2026-10-03-1811.zip -d ~
 nabu start
 ```
 
@@ -715,9 +824,9 @@ If the problem lies with the Internet Adapter itself or with a NABU program, the
 | `~/nabu/NABU Internet Adapter/Store/` | Cloud CP/M drives and `LST.TXT` |
 | `~/nabu/NABU Internet Adapter/Local Source/` | Local programs |
 | `~/nabu/NABU Internet Adapter/Cache/` | Downloads from the cloud |
-| `~/nabu/printer/` | The virtual printer's PDFs |
+| `~/nabu/printer/` | The virtual printer's PDFs, their original data (`.lst`), and the typeface and paper choice |
 | `~/nabu/ia-error.log` | The IA's errors |
-| `~/backups/` | Backups |
+| `~/nabu/backups/` | Backups |
 | `/usr/local/bin/nabu` | Administration command |
 | `/usr/local/lib/nabu/` | Web panel, virtual printer, and backup tool |
 | `/etc/nabu-ia.conf` | Paths, plus the NABU Setup version and date |
@@ -761,7 +870,7 @@ sudo rm -r /usr/local/lib/nabu
 sudo systemctl daemon-reload
 ```
 
-To also delete the IA, your CP/M files, the printouts, and the backups, remove the `~/nabu` and `~/backups` folders. That part cannot be undone.
+To also delete the IA, your CP/M files, the printouts, and the backups, remove the `~/nabu` folder. That part cannot be undone.
 
 # Resources and credits
 
@@ -777,6 +886,8 @@ To also delete the IA, your CP/M files, the printouts, and the backups, remove t
 ## Credits
 
 The NABU Internet Adapter, Cloud CP/M, and RetroNET are the work of DJ Sures. NABU Setup only automates their installation on a Raspberry Pi and adds administration tools.
+
+The virtual printer's letter-quality typefaces were derived from Courier 10 Pitch and DejaVu Sans Mono, two freely licensed typefaces. Their copyright notices are in the `NOTICE.md` file of the repository.
 
 NABU Setup and this manual are a project by Retro Informática Paraguay.
 
@@ -802,3 +913,4 @@ The license covers NABU Setup only. The NABU Internet Adapter is a separate prog
 | 1 | 2026-10-03 | 1.0.0 | First release |
 | 2 | 2026-10-04 | 1.1.0 | Safe shutdown: `nabu poweroff` command and **Shut down the Pi** button on the web panel |
 | 3 | 2026-10-04 | 1.2.0 | `nabu setup` command for updating NABU Setup |
+| 4 | 2026-10-05 | 1.3.0 | Accented letters on the virtual printer, printing from WordStar, choice of typeface and paper, deleting and redoing printouts from the web panel, and backups in `~/nabu/backups` |

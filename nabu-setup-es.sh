@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NABU Setup — servidor NABU minimalista para Raspberry Pi (Raspberry Pi OS Lite)
-# Versión 1.2.0 · publicada el 2026-10-04 · edición en español
+# Versión 1.3.0 · publicada el 2026-10-05 · edición en español
 #
 # Retro Informática Paraguay — https://www.youtube.com/@retroinfopy
 # Repositorio y manual de usuario: https://github.com/czayas/nabu-setup
@@ -29,8 +29,8 @@
 # autor del NABU Internet Adapter.
 set -euo pipefail
 
-NABU_SETUP_VERSION="1.2.0"
-NABU_SETUP_DATE="2026-10-04"
+NABU_SETUP_VERSION="1.3.0"
+NABU_SETUP_DATE="2026-10-05"
 NABU_SETUP_LANG="es"
 NABU_SETUP_REPO="https://github.com/czayas/nabu-setup"
 
@@ -67,6 +67,7 @@ echo
 U="$USER"
 DIR="$HOME/nabu"
 PRINT_DIR="$DIR/printer"
+BACKUP_DIR="$DIR/backups"
 PORT=80
 
 # El Internet Adapter está hecho en .NET, que no funciona en procesadores ARMv6
@@ -165,6 +166,7 @@ NABU_ZIP="$ZIP"
 NABU_URL="$URL"
 NABU_PORT="$PORT"
 NABU_PRINT_DIR="$PRINT_DIR"
+NABU_BACKUP_DIR="$BACKUP_DIR"
 NABU_SETUP_VERSION="$NABU_SETUP_VERSION"
 NABU_SETUP_DATE="$NABU_SETUP_DATE"
 NABU_SETUP_LANG="$NABU_SETUP_LANG"
@@ -210,6 +212,7 @@ sudo tee /usr/local/bin/nabu >/dev/null <<'EOF'
 # nabu — administración del servidor NABU (parte de NABU Setup)
 source /etc/nabu-ia.conf
 PRINT_DIR="${NABU_PRINT_DIR:-$NABU_DIR/printer}"
+BACKUP_DIR="${NABU_BACKUP_DIR:-$NABU_DIR/backups}"
 VERSION="NABU Setup ${NABU_SETUP_VERSION:-?} (${NABU_SETUP_DATE:-?})"
 
 usage() {
@@ -225,8 +228,8 @@ Uso: nabu [comando]
   nabu start      Inicia el Internet Adapter
   nabu stop       Detiene el Internet Adapter
   nabu restart    Reinicia el Internet Adapter
-  nabu backup     Guarda un backup .zip de CP/M y la configuración en ~/backups
-                  (se conservan los últimos 5)
+  nabu backup     Guarda un backup .zip de CP/M y la configuración en
+                  ${BACKUP_DIR/#$HOME/\~} (se conservan los últimos 5)
   nabu update     Descarga la última versión del IA (hace un backup antes)
   nabu setup      Descarga e instala la última versión publicada de NABU Setup
   nabu poweroff   Apaga la Pi de forma segura; después puedes cortar la corriente
@@ -339,13 +342,12 @@ sudo tee /usr/local/lib/nabu/nabu-backup.py >/dev/null <<'PYEOF'
 #!/usr/bin/env python3
 """Crea un backup .zip de los datos del Internet Adapter: unidades de
 CP/M (Store/), programas locales y configuración. Excluye el programa, la
-caché, los logs y los PDF de la impresora virtual.
-Guarda en ~/backups y conserva solo los últimos KEEP archivos."""
+caché, los logs, las impresiones y los backups anteriores.
+Guarda en ~/nabu/backups y conserva solo los últimos KEEP archivos."""
 import datetime, glob, os, sys, zipfile
 
 KEEP = 5
 CONF = os.environ.get("NABU_IA_CONF", "/etc/nabu-ia.conf")
-DEST = os.environ.get("NABU_BACKUP_DIR", os.path.expanduser("~/backups"))
 EXCL_DIRS = {"Cache"}
 EXCL_FILES = {"CommLog.txt", "Console.txt", "ia-error.log", "libdl.so",
               "README.TXT", "SERVICE.TXT", "tmux.conf"}
@@ -365,22 +367,24 @@ def main():
     c = conf()
     binpath = c["NABU_BIN"]
     base = os.path.dirname(binpath)
-    # Las impresiones no entran en el backup aunque estén dentro de la carpeta
+    # Las impresiones y los backups quedan fuera aunque estén dentro de la carpeta
     prints = os.path.abspath(c.get("NABU_PRINT_DIR") or os.path.join(base, "printer"))
+    dest = os.path.abspath(os.environ.get("NABU_BACKUP_DIR") or c.get("NABU_BACKUP_DIR")
+                           or os.path.join(base, "backups"))
     excl = EXCL_FILES | {os.path.basename(binpath)}
-    os.makedirs(DEST, exist_ok=True)
+    os.makedirs(dest, exist_ok=True)
 
     stamp = datetime.datetime.now().strftime("%Y-%m-%d-%H%M")
-    out = os.path.join(DEST, f"nabu-backup-{stamp}.zip")
+    out = os.path.join(dest, f"nabu-backup-{stamp}.zip")
     if os.path.exists(out):  # dos backups en el mismo minuto
-        out = os.path.join(DEST, f"nabu-backup-{stamp}{datetime.datetime.now():%S}.zip")
+        out = os.path.join(dest, f"nabu-backup-{stamp}{datetime.datetime.now():%S}.zip")
     tmp = out + ".part"
 
     n = 0
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
         for root, dirs, files in os.walk(base):
             dirs[:] = sorted(d for d in dirs if d not in EXCL_DIRS
-                             and os.path.abspath(os.path.join(root, d)) != prints)
+                             and os.path.abspath(os.path.join(root, d)) not in (prints, dest))
             rel_root = os.path.relpath(root, base)
             # carpetas vacías (unidades y áreas de usuario sin archivos)
             if rel_root != "." and not files:
@@ -394,13 +398,13 @@ def main():
                 n += 1
     os.replace(tmp, out)
 
-    olds = sorted(glob.glob(os.path.join(DEST, "nabu-backup-*.zip")))
+    olds = sorted(glob.glob(os.path.join(dest, "nabu-backup-*.zip")))
     for old in olds[:-KEEP]:
         os.remove(old)
 
     size = os.path.getsize(out) / 1024
     print(f"Backup creado: {out} ({n} archivos, {size:.0f} KB)")
-    print(f"Backups guardados en {DEST}: {min(len(olds), KEEP)} (máximo {KEEP})")
+    print(f"Backups guardados en {dest}: {min(len(olds), KEEP)} (máximo {KEEP})")
     return out
 
 
@@ -412,6 +416,13 @@ if __name__ == "__main__":
         sys.exit(1)
 PYEOF
 sudo chmod 755 /usr/local/lib/nabu/nabu-backup.py
+mkdir -p "$BACKUP_DIR"
+# Hasta la versión 1.2.0 los backups se guardaban en ~/backups: se mudan
+if compgen -G "$HOME/backups/nabu-backup-*.zip" >/dev/null; then
+  echo "==> Moviendo los backups de ~/backups a ${BACKUP_DIR/#$HOME/\~}"
+  mv -n "$HOME"/backups/nabu-backup-*.zip "$BACKUP_DIR"/
+  rmdir "$HOME/backups" 2>/dev/null || true
+fi
 
 echo "==> Instalando impresora virtual (LST.TXT a PDF)"
 sudo tee /usr/local/lib/nabu/nabu-print.py >/dev/null <<'PYEOF'
@@ -420,21 +431,25 @@ sudo tee /usr/local/lib/nabu/nabu-print.py >/dev/null <<'PYEOF'
 
 Vigila el archivo LST.TXT, donde el Internet Adapter guarda lo que la NABU
 manda a la impresora (dispositivo LST: de Cloud CP/M). Cuando el archivo deja
-de crecer durante WAIT segundos, toma lo nuevo y genera un PDF con aspecto
-de papel continuo e impresora de matriz de puntos en la carpeta de impresiones
-(NABU_PRINT_DIR en /etc/nabu-ia.conf; normalmente ~/nabu/printer).
+de crecer durante WAIT segundos, toma lo nuevo y genera un PDF en la carpeta
+de impresiones (NABU_PRINT_DIR en /etc/nabu-ia.conf; normalmente
+~/nabu/printer). La letra (matriz de puntos o calidad carta) y el papel
+(formulario continuo o en blanco) se eligen en el panel web.
+
+Junto a cada PDF guarda los datos tal como llegaron (.lst), para rehacerlo
+más tarde con otra letra u otro papel.
 
 Solo biblioteca estándar. No modifica LST.TXT: recuerda hasta dónde leyó.
 
-También convierte un archivo suelto:
+También convierte un archivo suelto o rehace una impresión guardada:
     python3 nabu-print.py entrada.txt salida.pdf
+    python3 nabu-print.py --reprint print-AAAA-MM-DD-HHMMSS.pdf
 """
-import datetime, json, os, sys, time, zlib
+import base64, datetime, json, os, re, sys, time, unicodedata, zlib
 
 CONF = os.environ.get("NABU_IA_CONF", "/etc/nabu-ia.conf")
 
 WAIT = 5       # segundos sin datos nuevos para dar por terminada una impresión
-PAPER = True   # False: hoja carta lisa, sin franjas verdes ni perforaciones
 COLS = 80      # columnas por línea (10 caracteres por pulgada)
 LPP = 66       # líneas por página (6 líneas por pulgada, hoja de 11 pulgadas)
 
@@ -459,6 +474,13 @@ def read_conf():
 DEST = (os.environ.get("NABU_PRINT_DIR") or read_conf().get("NABU_PRINT_DIR")
         or os.path.expanduser("~/nabu/printer"))
 STATE = os.path.join(DEST, ".state.json")
+SETTINGS = os.path.join(DEST, ".settings.json")
+NAME_RE = re.compile(r"print-(\d{4})-(\d\d)-(\d\d)-(\d\d)(\d\d)(\d\d)\.pdf")
+
+# Letras y papeles que se eligen en el panel web. El primero de cada lista es
+# el que vale mientras no se elija otro.
+FONTS = ("matrix", "serif", "sans")   # matriz de puntos; calidad carta con y sin remates
+PAPERS = ("fanfold", "plain")         # formulario continuo; hoja carta en blanco
 
 # Fuente de matriz de 5x7 puntos, caracteres 0x20 a 0x7E. Cinco bytes por
 # carácter, uno por columna; el bit 0 es la fila de arriba.
@@ -500,6 +522,171 @@ DESCENDERS = {
     "q": (".....", ".....", ".####", "#...#", "#...#", "#...#", ".####", "....#", "....#"),
     "y": (".....", ".....", "#...#", "#...#", "#...#", "#...#", ".####", "....#", ".###."),
 }
+
+# Marcas que, impresas sobre una letra, forman una letra acentuada. Es el
+# recurso de WordStar (^PH) y de las máquinas de escribir: la letra y, encima,
+# el acento. Se dibujan como una sola letra, y así quedan también en el texto
+# del PDF. Dos filas de puntos por marca, de arriba hacia abajo.
+ACCENTS = {
+    "'": ("\u0301", ("...#.", "..#..")),      # acento agudo
+    "`": ("\u0300", (".#...", "..#..")),      # acento grave
+    "^": ("\u0302", ("..#..", ".#.#.")),      # circunflejo
+    "~": ("\u0303", (".#..#", "#.##.")),      # tilde de la eñe
+    '"': ("\u0308", (".#.#.", ".....")),      # diéresis
+    ",": ("\u0327", ("..#..", ".#...")),      # cedilla (va debajo)
+}
+
+# Mayúsculas de seis filas, para dejar lugar al acento encima.
+TALL = {
+    "A": (".###.", "#...#", "#...#", "#####", "#...#", "#...#"),
+    "E": ("#####", "#....", "####.", "#....", "#....", "#####"),
+    "I": (".###.", "..#..", "..#..", "..#..", "..#..", ".###."),
+    "N": ("#...#", "##..#", "#.#.#", "#.#.#", "#..##", "#...#"),
+    "O": (".###.", "#...#", "#...#", "#...#", "#...#", ".###."),
+    "U": ("#...#", "#...#", "#...#", "#...#", "#...#", ".###."),
+    "Y": ("#...#", "#...#", ".#.#.", "..#..", "..#..", "..#.."),
+}
+
+# Letras de calidad carta (LQ), como las de una impresora de 24 agujas: cada
+# carácter es una matriz de 36 x 36 posiciones (1/360 de pulgada a lo ancho,
+# 1/180 a lo alto) cuyos puntos se solapan. Hay una con remates ("serif") y
+# otra de palo seco ("sans"). Las matrices se obtuvieron de las letras libres
+# Courier 10 Pitch y DejaVu Sans Mono; sus avisos de derechos están en
+# NOTICE.md, en el repositorio. Van comprimidas con zlib y en base64: 162
+# bytes por carácter, fila por fila desde arriba; ocho filas quedan por
+# debajo del renglón.
+LQ_CHARS = [chr(c) for c in range(33, 127)] + [
+    chr(c) for c in range(0xC0, 0x100)
+    if unicodedata.normalize("NFD", chr(c))[1:] in [a for a, _ in ACCENTS.values()]]
+LQ = {
+    "serif": (
+        "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"),
+    "sans": (
+        "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"
+        "RG8="),
+}
+_LQ_RAW = {}
 
 # Códigos Epson (ESC + letra) que llevan un parámetro y se ignoran.
 ESC_1 = set(b"WSpxk!A3JNQlRtaUsij")
@@ -648,9 +835,34 @@ def _circle(x, y, r):
             "%s %s %s %s %s %s c %s %s %s %s %s %s c h\n" % tuple(t))
 
 
+def compose(letter, mark):
+    """Letra acentuada que forman una letra y una marca, o None."""
+    if mark not in ACCENTS:
+        return None
+    c = unicodedata.normalize("NFC", letter + ACCENTS[mark][0])
+    return c if len(c) == 1 and 0xA0 <= ord(c) <= 0xFF else None
+
+
 def _dots(ch):
     """Puntos (columna, fila) de un carácter. Filas 0 a 6 sobre el renglón;
-    7 y 8 por debajo, como las agujas inferiores de una impresora de 9."""
+    7 y 8 por debajo, como las agujas inferiores de una impresora de 9. Las
+    letras acentuadas usan además la fila -1, por encima de la línea."""
+    if ord(ch) > 0x7E:                      # letra acentuada: letra + marca
+        letter, comb = unicodedata.normalize("NFD", ch)
+        rows = next(r for c, r in ACCENTS.values() if c == comb)
+
+        def mark(top):
+            return [(i, top + k) for k, row in enumerate(rows)
+                    for i, c in enumerate(row) if c == "#"]
+
+        if comb == "\u0327":                # cedilla: debajo del renglón
+            return _dots(letter) + mark(7)
+        if letter in TALL:                  # mayúscula: seis filas y el acento arriba
+            return [(i, 1 + f) for f, row in enumerate(TALL[letter])
+                    for i, c in enumerate(row) if c == "#"] + mark(-1)
+        # minúscula, sin el punto de la i; la tilde va despegada de la n
+        return ([(i, f) for i, f in _dots(letter) if f >= 2]
+                + mark(-1 if comb == "\u0303" else 0))
     if ch in DESCENDERS:
         return [(i, f) for f, row in enumerate(DESCENDERS[ch])
                 for i, c in enumerate(row) if c == "#"]
@@ -661,11 +873,43 @@ def _dots(ch):
             for f in range(7) if bits >> f & 1]
 
 
-def _glyph(ch):
+def _lq_rows(font, ch):
+    """Filas de un carácter LQ, de arriba hacia abajo: 36 enteros de 36 bits;
+    el bit más alto es la columna de la izquierda."""
+    if ch not in LQ_CHARS:
+        return []
+    if font not in _LQ_RAW:
+        _LQ_RAW[font] = zlib.decompress(base64.b64decode(LQ[font]))
+    i = LQ_CHARS.index(ch) * 162
+    n = int.from_bytes(_LQ_RAW[font][i:i + 162], "big")
+    return [n >> 36 * (35 - row) & 0xFFFFFFFFF for row in range(36)]
+
+
+def _glyph_lq(font, ch):
+    """Dibujo de un carácter LQ. Los puntos vecinos de una fila se trazan
+    juntos, como una línea de extremos redondos del grosor de un punto."""
+    s = ["600 0 -30 -300 630 960 d1\n1 J 46 w\n"]
+    for row, bits in enumerate(_lq_rows(font, ch)):
+        y = _n(916.67 - 33.333 * row)
+        col = 0
+        while col < 36:
+            start = col
+            while col < 36 and bits >> (35 - col) & 1:
+                col += 1
+            if col > start:
+                s.append("%s %s m %s %s l\n" % (
+                    _n(7.83 + 16.667 * start), y, _n(8.83 + 16.667 * (col - 1)), y))
+            col += 1
+    return "".join(s) + ("S\n" if len(s) > 1 else "")
+
+
+def _glyph(font, ch):
     """Dibujo de un carácter: un círculo por cada punto de la matriz.
     Celda de 600 unidades de ancho (milésimas del cuerpo de la letra)."""
+    if font != "matrix":
+        return _glyph_lq(font, ch)
     dots = _dots(ch)
-    s = "600 0 0 -200 600 700 d1\n"
+    s = "600 0 0 -200 600 800 d1\n"
     for col, row in dots:
         s += _circle(100 + 100 * col, 650 - 100 * row, 43)
     return s + ("f\n" if dots else "")
@@ -691,11 +935,23 @@ def _string(text):
     return "(" + text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)") + ")"
 
 
-def _content(page, x0, height, used):
+def _struck(line, col):
+    """Indica si una letra vecina también lleva un guion encima: varios
+    guiones seguidos son tachado, no una eñe."""
+    for near in (col - 1, col + 1):
+        chars = [c for c, _ in line.get(near, [])]
+        if "-" in chars and any(c.isalnum() for c in chars):
+            return True
+    return False
+
+
+def _content(page, x0, height, used, font, paper):
     """Texto de una página. La negrita y la sobreimpresión se logran como
     en una impresora real: una segunda pasada corrida medio punto."""
-    s = ["/Bg Do\n"] if PAPER else []
-    s.append("0.11 0.11 0.17 rg\nBT\n/F1 12 Tf\n")
+    s = ["/Bg Do\n"] if paper == "fanfold" else []
+    s.append("0.11 0.11 0.17 rg 0.11 0.11 0.17 RG\nBT\n/F1 12 Tf\n")
+    # corrimiento de la segunda pasada y distancia del renglón al borde superior
+    shift, drop = (0.6, 9.7) if font == "matrix" else (0.4, 8.8)
     for row in sorted(page):
         strikes = []                        # (corrimiento, columna, carácter)
         for col, hits in page[row].items():
@@ -703,10 +959,25 @@ def _content(page, x0, height, used):
             for ch, bold in hits:
                 count, isbold = seen.get(ch, (0, False))
                 seen[ch] = (count + 1, isbold or bold)
+            letters = [c for c in seen if c.isalpha()]
+            if len(letters) == 1:           # una letra con un acento encima
+                letter = letters[0]
+                for mark in [c for c in seen if c in ACCENTS or c == "-"]:
+                    accented = compose(letter, mark)
+                    if letter in "nN" and (mark == "^" or (
+                            mark == "-" and not _struck(page[row], col))):
+                        # eñe escrita con circunflejo o con guion, para teclados
+                        # sin tilde, como el de la NABU
+                        accented = "\u00f1" if letter == "n" else "\u00d1"
+                    if accented:
+                        count, isbold = seen.pop(letter)
+                        seen.pop(mark)
+                        seen[accented] = (count, isbold)
+                        break
             for ch, (count, isbold) in seen.items():
                 strikes.append((0, col, ch))
                 if isbold or count > 1:
-                    strikes.append((0.6, col, ch))
+                    strikes.append((shift, col, ch))
         layers = []                         # (corrimiento, {columna: carácter})
         for dx, col, ch in strikes:
             used.add(ch)
@@ -716,7 +987,7 @@ def _content(page, x0, height, used):
                     break
             else:
                 layers.append((dx, {col: ch}))
-        y = height - 12 * row - 9.7
+        y = height - 12 * row - drop
         for dx, cells in layers:
             text = "".join(cells.get(c, " ") for c in range(max(cells) + 1))
             s.append("1 0 0 1 %s %s Tm %s Tj\n" % (_n(x0 + dx), _n(y), _string(text)))
@@ -755,49 +1026,57 @@ CMAP = (b"/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n"
         b"/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n"
         b"/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n"
         b"1 begincodespacerange\n<00> <FF>\nendcodespacerange\n"
-        b"1 beginbfrange\n<20> <7E> <0020>\nendbfrange\n"
+        b"2 beginbfrange\n<20> <7E> <0020>\n<A0> <FF> <00A0>\nendbfrange\n"
         b"endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n")
 
 
-def make_pdf(data, when=None):
+def make_pdf(data, when=None, font=None, paper=None):
     """Devuelve (bytes del PDF, páginas, líneas) o None si no hay nada
-    imprimible en los datos."""
+    imprimible en los datos. `font` y `paper` son valores de FONTS y PAPERS."""
+    font = font if font in FONTS else FONTS[0]
+    paper = paper if paper in PAPERS else PAPERS[0]
     pages = Printer().feed(data)
     lines = sum(len(p) for p in pages)
     if not lines:
         return None
     when = when or datetime.datetime.now()
-    width, height, x0 = (684, 792, 54) if PAPER else (612, 792, 18)
+    width, height, x0 = (684, 792, 54) if paper == "fanfold" else (612, 792, 18)
 
     used = {" "}
-    contents = [_content(p, x0, height, used) for p in pages]
+    contents = [_content(p, x0, height, used, font, paper) for p in pages]
     chars = sorted(used)
 
     obj = {}
-    CAT, PAGES, FONT, TOUNI, INFO, BG = 1, 2, 3, 4, 5, 6
-    nxt = 7
+    CAT, PAGES, FACE, TOUNI, INFO, BG = 1, 2, 3, 4, 5, 6
+    nxt = 7 if paper == "fanfold" else 6    # sin papel de fondo no hay objeto BG
     procs = {}
     for ch in chars:
-        obj[nxt] = ("<< >>", _glyph(ch).encode("latin-1"))
+        obj[nxt] = ("<< >>", _glyph(font, ch).encode("latin-1"))
         procs[ch] = nxt
         nxt += 1
 
     first, last = ord(chars[0]), ord(chars[-1])
-    diffs = " ".join("%d /%s" % (ord(c), NAMES[ord(c) - 32]) for c in chars)
-    obj[FONT] = (
-        "<< /Type /Font /Subtype /Type3 /Name /NABUMatrix "
-        "/FontBBox [0 -200 600 700] /FontMatrix [0.001 0 0 0.001 0 0] "
+
+    def name(c):
+        return NAMES[ord(c) - 32] if ord(c) <= 0x7E else "uni%04X" % ord(c)
+
+    diffs = " ".join("%d /%s" % (ord(c), name(c)) for c in chars)
+    obj[FACE] = (
+        "<< /Type /Font /Subtype /Type3 /Name /NABU%s "
+        "/FontBBox [%s] /FontMatrix [0.001 0 0 0.001 0 0] "
         "/CharProcs << %s >> "
         "/Encoding << /Type /Encoding /Differences [%s] >> "
         "/FirstChar %d /LastChar %d /Widths [%s] "
         "/Resources << /ProcSet [/PDF] >> /ToUnicode %d 0 R >>" % (
-            " ".join("/%s %d 0 R" % (NAMES[ord(c) - 32], procs[c]) for c in chars),
+            font.capitalize(),
+            "0 -200 600 800" if font == "matrix" else "-30 -300 630 960",
+            " ".join("/%s %d 0 R" % (name(c), procs[c]) for c in chars),
             diffs, first, last, " ".join(["600"] * (last - first + 1)), TOUNI),
         None)
     obj[TOUNI] = ("<< >>", CMAP)
 
-    resources = "/Font << /F1 %d 0 R >>" % FONT
-    if PAPER:
+    resources = "/Font << /F1 %d 0 R >>" % FACE
+    if paper == "fanfold":
         resources += " /XObject << /Bg %d 0 R >>" % BG
         obj[BG] = ("<< /Type /XObject /Subtype /Form /BBox [0 0 %d %d] "
                    "/Resources << /ProcSet [/PDF] >> >>" % (width, height),
@@ -855,22 +1134,62 @@ def save_state(offset):
     os.replace(tmp, STATE)
 
 
+def read_settings():
+    """Letra y papel elegidos en el panel web."""
+    try:
+        with open(SETTINGS) as f:
+            s = json.load(f)
+    except (OSError, ValueError):
+        s = {}
+    if not isinstance(s, dict):
+        s = {}
+    font, paper = s.get("font"), s.get("paper")
+    return (font if font in FONTS else FONTS[0],
+            paper if paper in PAPERS else PAPERS[0])
+
+
+def _write(name, data):
+    target = os.path.join(DEST, name)
+    with open(target + ".part", "wb") as f:
+        f.write(data)
+    os.replace(target + ".part", target)
+
+
 def save_pdf(data):
-    """Convierte una impresión y la deja en DEST. Devuelve el nombre."""
+    """Convierte una impresión y la deja en DEST, junto con los datos
+    originales (.lst) para poder rehacerla. Devuelve el nombre."""
     now = datetime.datetime.now()
-    result = make_pdf(data, now)
+    result = make_pdf(data, now, *read_settings())
     if result is None:
         return None
     pdf, pages, lines = result
     name = "print-%s.pdf" % now.strftime("%Y-%m-%d-%H%M%S")
-    target = os.path.join(DEST, name)
-    with open(target + ".part", "wb") as f:
-        f.write(pdf)
-    os.replace(target + ".part", target)
+    _write(name[:-4] + ".lst", data)
+    _write(name, pdf)
     print("Impresión guardada: %s (%d página%s, %d línea%s)" % (
         name, pages, "" if pages == 1 else "s",
         lines, "" if lines == 1 else "s"), flush=True)
     return name
+
+
+def reprint(name):
+    """Rehace una impresión guardada con la letra y el papel elegidos ahora.
+    Conserva el nombre y, con él, la fecha y la hora originales."""
+    m = NAME_RE.fullmatch(name)
+    try:
+        when = datetime.datetime(*(int(v) for v in m.groups()))
+    except (AttributeError, ValueError):
+        sys.exit("Nombre de impresión no válido: %s" % name)
+    try:
+        with open(os.path.join(DEST, name[:-4] + ".lst"), "rb") as f:
+            data = f.read()
+    except OSError:
+        sys.exit("No están los datos originales de %s" % name)
+    result = make_pdf(data, when, *read_settings())
+    if result is None:
+        sys.exit("No hay nada imprimible en los datos de %s" % name)
+    _write(name, result[0])
+    print("Impresión rehecha: %s" % name, flush=True)
 
 
 def service():
@@ -911,9 +1230,11 @@ def service():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3:
+    if len(sys.argv) == 3 and sys.argv[1] == "--reprint":
+        reprint(os.path.basename(sys.argv[2]))
+    elif len(sys.argv) == 3:
         with open(sys.argv[1], "rb") as f:
-            r = make_pdf(f.read())
+            r = make_pdf(f.read(), None, *read_settings())
         if r is None:
             sys.exit("No hay nada imprimible en %s" % sys.argv[1])
         with open(sys.argv[2], "wb") as f:
@@ -925,7 +1246,7 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             pass
     else:
-        sys.exit("Uso: nabu-print.py [entrada.txt salida.pdf]")
+        sys.exit("Uso: nabu-print.py [entrada.txt salida.pdf | --reprint print-...pdf]")
 PYEOF
 sudo chmod 755 /usr/local/lib/nabu/nabu-print.py
 mkdir -p "$PRINT_DIR"
@@ -983,14 +1304,24 @@ UPD = {"state": "idle", "out": ""}
 REALM = "Servidor NABU"
 UNKNOWN = "desconocido"
 NO_POWEROFF = "Sin permiso para apagar la Pi. Vuelve a ejecutar NABU Setup."
+NO_PRINT = "Esa impresión ya no existe."
+NO_RAW = "No están los datos originales de esa impresión; no se puede rehacer."
+BAD_SETTING = "Letra o papel desconocidos."
 WHEN = "{d}/{mo}/{y} {h}:{mi}:{s}"     # fecha y hora de cada impresión en la lista
-BACKUPS = os.environ.get("NABU_BACKUP_DIR", os.path.expanduser("~/backups"))
+BACKUPS = (os.environ.get("NABU_BACKUP_DIR") or IA.get("NABU_BACKUP_DIR")
+           or os.path.expanduser("~/nabu/backups"))
 BACKUP_RE = re.compile(r"nabu-backup-[0-9-]+\.zip")
 PRINTS = (os.environ.get("NABU_PRINT_DIR") or IA.get("NABU_PRINT_DIR")
           or os.path.expanduser("~/nabu/printer"))
 PRINT_RE = re.compile(r"print-(\d{4})-(\d\d)-(\d\d)-(\d\d)(\d\d)(\d\d)\.pdf")
 PRINT_MAX = 50             # impresiones que lista el panel (las más nuevas)
 PAGES = {}                 # nombre -> (fecha de modificación, páginas)
+# Letra y papel de la impresora virtual: las mismas listas que en nabu-print.py,
+# que lee la elección de SETTINGS en cada impresión.
+FONTS = ("matrix", "serif", "sans")
+PAPERS = ("fanfold", "plain")
+SETTINGS = os.path.join(PRINTS, ".settings.json")
+PRINT_PY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nabu-print.py")
 
 
 def check_auth(header):
@@ -1041,6 +1372,20 @@ def status():
     }
 
 
+def print_settings():
+    """Letra y papel elegidos para la impresora virtual."""
+    try:
+        with open(SETTINGS) as f:
+            s = json.load(f)
+    except (OSError, ValueError):
+        s = {}
+    if not isinstance(s, dict):
+        s = {}
+    font, paper = s.get("font"), s.get("paper")
+    return {"font": font if font in FONTS else FONTS[0],
+            "paper": paper if paper in PAPERS else PAPERS[0]}
+
+
 def prints():
     """Impresiones guardadas por nabu-print, de la más nueva a la más vieja."""
     try:
@@ -1062,8 +1407,9 @@ def prints():
             continue
         y, mo, d, h, mi, s = PRINT_RE.fullmatch(name).groups()
         items.append({"name": name, "when": WHEN.format(y=y, mo=mo, d=d, h=h, mi=mi, s=s),
-                      "pages": cached[1], "kb": max(1, round(st.st_size / 1024))})
-    return {"items": items, "total": len(names)}
+                      "pages": cached[1], "kb": max(1, round(st.st_size / 1024)),
+                      "raw": os.path.isfile(path[:-4] + ".lst")})
+    return dict(print_settings(), items=items, total=len(names))
 
 
 def do_update():
@@ -1142,9 +1488,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(404, "{}")
         n = int(self.headers.get("Content-Length") or 0)
         try:
-            action = json.loads(self.rfile.read(n) or b"{}").get("action")
+            req = json.loads(self.rfile.read(n) or b"{}")
+            action = req.get("action")
         except Exception:
-            action = None
+            req, action = {}, None
         if action in ("start", "stop", "restart"):
             if action != "stop":
                 run(["sudo", "-n", "systemctl", "reset-failed", "nabu-ia"])
@@ -1162,6 +1509,40 @@ class Handler(BaseHTTPRequestHandler):
                     {"ok": False, "out": "Ya hay una actualización en curso."}))
             threading.Thread(target=do_update, daemon=True).start()
             self.send(202, json.dumps({"ok": True}))
+        elif action == "print-delete":
+            name = str(req.get("name", ""))
+            path = os.path.join(PRINTS, name)
+            if not PRINT_RE.fullmatch(name) or not os.path.isfile(path):
+                return self.send(404, json.dumps({"ok": False, "out": NO_PRINT}))
+            try:
+                os.remove(path)
+                if os.path.isfile(path[:-4] + ".lst"):
+                    os.remove(path[:-4] + ".lst")
+            except OSError as e:
+                return self.send(500, json.dumps({"ok": False, "out": str(e)}))
+            PAGES.pop(name, None)
+            self.send(200, json.dumps({"ok": True}))
+        elif action == "print-redo":
+            name = str(req.get("name", ""))
+            path = os.path.join(PRINTS, name)
+            if not PRINT_RE.fullmatch(name) or not os.path.isfile(path):
+                return self.send(404, json.dumps({"ok": False, "out": NO_PRINT}))
+            if not os.path.isfile(path[:-4] + ".lst"):
+                return self.send(404, json.dumps({"ok": False, "out": NO_RAW}))
+            rc, out = run(["python3", PRINT_PY, "--reprint", name], 120)
+            self.send(200 if rc == 0 else 500, json.dumps({"ok": rc == 0, "out": out}))
+        elif action == "print-settings":
+            s = {"font": req.get("font"), "paper": req.get("paper")}
+            if s["font"] not in FONTS or s["paper"] not in PAPERS:
+                return self.send(400, json.dumps({"ok": False, "out": BAD_SETTING}))
+            try:
+                os.makedirs(PRINTS, exist_ok=True)
+                with open(SETTINGS + ".part", "w") as f:
+                    json.dump(s, f)
+                os.replace(SETTINGS + ".part", SETTINGS)
+            except OSError as e:
+                return self.send(500, json.dumps({"ok": False, "out": str(e)}))
+            self.send(200, json.dumps({"ok": True}))
         elif action == "poweroff":
             rc, _ = run(["sudo", "-n", "-l", "systemctl", "poweroff"])
             if rc != 0:
@@ -1211,12 +1592,24 @@ pre{margin:0;background:#000a1f;border-radius:8px;padding:10px;overflow:auto;
 font:12px/1.35 ui-monospace,"DejaVu Sans Mono",monospace;max-height:55vh;white-space:pre}
 #msg{min-height:1.4em;color:var(--dim);font-size:.9rem;margin-top:10px}
 .plist{list-style:none;margin:0;padding:0;max-height:40vh;overflow:auto}
-.plist li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
-padding:10px 0;border-top:1px solid var(--line)}
+.plist li{display:flex;align-items:baseline;gap:12px;
+padding:3px 0;border-top:1px solid var(--line)}
 .plist li:first-child{border-top:0}
-.plist a{color:var(--acc);text-decoration:none;font-weight:600;font-variant-numeric:tabular-nums}
+.plist a{flex:1;color:var(--acc);text-decoration:none;font-weight:600;font-variant-numeric:tabular-nums}
 .plist small{color:var(--dim);font-size:.82rem;white-space:nowrap}
-.plist .empty{color:var(--dim);font-size:.9rem}
+.plist .empty{color:var(--dim);font-size:.9rem;padding:10px 0}
+.plist button.del{background:transparent;border:0;color:var(--bad);font-size:1.05rem;
+line-height:1;padding:9px 11px;margin-right:-11px;border-radius:8px}
+.plist button.del:hover{background:rgba(255,107,107,.14)}
+.plist button.redo{background:transparent;border:0;color:var(--acc);font-size:1.05rem;
+line-height:1;padding:9px 9px;margin-right:-10px;border-radius:8px}
+.plist button.redo:hover{background:rgba(78,168,255,.14)}
+.opt{display:flex;flex-wrap:wrap;align-items:center;gap:0 16px;margin:0 0 2px}
+.opt>span{flex:0 0 100%;color:var(--dim);font-size:.82rem}
+.opt label{display:flex;align-items:center;gap:7px;padding:6px 0;cursor:pointer;white-space:nowrap}
+.opt input{accent-color:var(--acc);width:1.05em;height:1.05em;margin:0}
+.hint{color:var(--dim);font-size:.82rem;margin:4px 0 10px;min-height:1.3em}
+.hint.bad{color:var(--bad)}
 footer{color:var(--dim);font-size:.78rem;text-align:center;padding:2px 0 14px}
 footer a{color:inherit}
 </style></head><body><main>
@@ -1242,6 +1635,16 @@ footer a{color:inherit}
 
 <div class="card">
 <h2>Impresiones</h2>
+<div class="opt" role="radiogroup" aria-labelledby="o-font"><span id="o-font">Tipo de letra</span>
+<label><input type="radio" name="font" value="matrix" onchange="setOpt()">Matriz de puntos</label>
+<label><input type="radio" name="font" value="serif" onchange="setOpt()">Serif</label>
+<label><input type="radio" name="font" value="sans" onchange="setOpt()">Sans serif</label>
+</div>
+<div class="opt" role="radiogroup" aria-labelledby="o-paper"><span id="o-paper">Tipo de papel</span>
+<label><input type="radio" name="paper" value="plain" onchange="setOpt()">Blanco</label>
+<label><input type="radio" name="paper" value="fanfold" onchange="setOpt()">Formulario continuo</label>
+</div>
+<div class="hint" id="p-hint"></div>
 <ul class="plist" id="prints"><li class="empty">…</li></ul>
 </div>
 
@@ -1275,6 +1678,9 @@ const T={
   printerOff:'La impresora virtual no está activa.',
   noPrints:'Todavía no hay impresiones. Prueba LPRINT desde MBASIC.',
   page:' página', pages:' páginas',
+  del:'Borrar', confirmDel:w=>'¿Borrar la impresión del '+w+'?',
+  redo:'Rehacer con la letra y el papel elegidos', redoing:'Rehaciendo la impresión…',
+  hint:'Vale para las próximas impresiones. Con ↻ se rehace una ya impresa.',
   older:n=>'Hay '+n+' más antiguas en la carpeta de impresiones.'
 };
 let view='screen', active='', printer=true, printsKey='', off=false;
@@ -1282,7 +1688,7 @@ const $=id=>document.getElementById(id);
 async function api(p,opt){const r=await fetch(p,opt);return r.json();}
 function set(id,cls,txt){const e=$(id);e.className='item '+cls;e.querySelector('b span:last-child').textContent=txt;}
 function msg(t){$('msg').textContent=t||'';}
-function post(a){return api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:a})});}
+function post(a,extra){return api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({action:a},extra||{}))});}
 async function refresh(){
   if(off) return;
   try{
@@ -1341,19 +1747,49 @@ async function loadPrints(){
   const key=JSON.stringify(r)+printer;
   if(key===printsKey) return;
   printsKey=key;
+  for(const k of ['font','paper']){const e=document.querySelector('input[name='+k+'][value="'+r[k]+'"]'); if(e) e.checked=true;}
   const ul=$('prints'); ul.textContent='';
   const note=t=>{const li=document.createElement('li');li.className='empty';li.textContent=t;ul.appendChild(li);};
   if(!printer) note(T.printerOff);
   if(!r.items.length && printer) note(T.noPrints);
   for(const p of r.items){
-    const li=document.createElement('li'), a=document.createElement('a'), s=document.createElement('small');
+    const li=document.createElement('li'), a=document.createElement('a'), s=document.createElement('small'), x=document.createElement('button');
     a.href='/api/print/'+encodeURIComponent(p.name); a.target='_blank'; a.rel='noopener'; a.textContent=p.when;
     s.textContent=p.pages+(p.pages===1?T.page:T.pages)+' · '+p.kb+' KB';
-    li.appendChild(a); li.appendChild(s); ul.appendChild(li);
+    x.className='del'; x.textContent='✕'; x.title=T.del; x.setAttribute('aria-label',T.del+' '+p.when);
+    x.onclick=()=>delPrint(p);
+    li.appendChild(a); li.appendChild(s);
+    if(p.raw){
+      const b=document.createElement('button');
+      b.className='redo'; b.textContent='↻'; b.title=T.redo; b.setAttribute('aria-label',T.redo+': '+p.when);
+      b.onclick=()=>redoPrint(p,b);
+      li.appendChild(b);
+    }
+    li.appendChild(x); ul.appendChild(li);
   }
   if(r.total>r.items.length) note(T.older(r.total-r.items.length));
 }
-refresh(); loadView();
+function pnote(t,bad){const e=$('p-hint'); e.textContent=t||T.hint; e.classList.toggle('bad',!!bad);}
+async function delPrint(p){
+  if(!confirm(T.confirmDel(p.when)))return;
+  try{const r=await post('print-delete',{name:p.name}); pnote(r.ok?'':T.error+r.out,!r.ok);}
+  catch(e){pnote(T.noConn,true);}
+  printsKey=''; loadPrints();
+}
+async function redoPrint(p,b){
+  b.disabled=true; pnote(T.redoing);
+  try{const r=await post('print-redo',{name:p.name}); pnote(r.ok?'':T.error+r.out,!r.ok);}
+  catch(e){pnote(T.noConn,true);}
+  printsKey=''; loadPrints();
+}
+async function setOpt(){
+  const f=document.querySelector('input[name=font]:checked'), p=document.querySelector('input[name=paper]:checked');
+  if(!f||!p) return;
+  try{const r=await post('print-settings',{font:f.value,paper:p.value}); pnote(r.ok?'':T.error+r.out,!r.ok);}
+  catch(e){pnote(T.noConn,true);}
+  printsKey=''; loadPrints();
+}
+pnote(); refresh(); loadView();
 setInterval(refresh,10000);
 setInterval(()=>{ if(view==='screen'&&!off) loadView(); },5000);
 </script></body></html>"""

@@ -6,13 +6,13 @@ lang: es
 babel: "spanish,es-tabla,es-noshorthands,es-nolayout"
 papersize: a4
 publisher: "Retro Informática Paraguay"
-script-version: "1.2.0"
-script-date: "2026-10-04"
-manual-revision: "3"
-date: "4 de octubre de 2026"
+script-version: "1.3.0"
+script-date: "2026-10-05"
+manual-revision: "4"
+date: "5 de octubre de 2026"
 repo: "https://github.com/czayas/nabu-setup"
 channel: "https://www.youtube.com/@retroinfopy"
-footer: "NABU Setup 1.2.0 · Manual, revisión 3"
+footer: "NABU Setup 1.3.0 · Manual, revisión 4"
 labels:
   script: "Versión de NABU Setup"
   revision: "Revisión del manual"
@@ -32,14 +32,14 @@ Esto es lo que instala:
 - **El NABU Internet Adapter**, el programa que atiende a la NABU. Queda como servicio del sistema: arranca solo cuando se enciende la Pi y se reinicia si se cierra.
 - **El comando `nabu`**, para administrar el servidor desde una terminal SSH.
 - **Un panel web** protegido con contraseña, para ver el estado y controlar el servidor desde el navegador de una computadora o de un teléfono.
-- **Una impresora virtual**: todo lo que la NABU envía a la impresora desde CP/M se convierte en un PDF con aspecto de papel continuo.
+- **Una impresora virtual**: todo lo que la NABU envía a la impresora desde CP/M se convierte en un PDF, con letra de matriz de puntos o de calidad carta, en papel continuo o en blanco.
 - **Backups** en formato .zip de tus archivos de CP/M y de la configuración.
 
 ![Componentes de un servidor NABU instalado con NABU Setup.](../img/architecture-es.png)
 
 NABU Setup es un proyecto independiente de Retro Informática Paraguay. No reemplaza al NABU Internet Adapter ni lo modifica: lo descarga del sitio oficial y lo deja listo para usar. No está afiliado a nabu.ca ni al autor del Internet Adapter.
 
-Este manual corresponde a NABU Setup 1.2.0, edición en español (`nabu-setup-es.sh`). El script y el manual también se publican en inglés.
+Este manual corresponde a NABU Setup 1.3.0, edición en español (`nabu-setup-es.sh`). El script y el manual también se publican en inglés.
 
 ## La NABU Personal Computer
 
@@ -215,7 +215,7 @@ Lo primero que hace es pedirte una **contraseña para el panel web**. Escríbela
 Después trabaja solo. En pantalla verás algo así:
 
 ```
-NABU Setup 1.2.0 (2026-10-04)
+NABU Setup 1.3.0 (2026-10-05)
 
 Contraseña para el panel web (usuario: nabu):
 Repítela:
@@ -370,8 +370,8 @@ nabu backup
 ```
 
 ```
-Backup creado: /home/nabu/backups/nabu-backup-2026-10-03-1811.zip (412 archivos, 5230 KB)
-Backups guardados en /home/nabu/backups: 3 (máximo 5)
+Backup creado: /home/nabu/nabu/backups/nabu-backup-2026-10-03-1811.zip (9 archivos, 31 KB)
+Backups guardados en /home/nabu/nabu/backups: 3 (máximo 5)
 ```
 
 El contenido de los backups y la forma de restaurarlos se explican en la sección [Backups](#backups).
@@ -394,8 +394,8 @@ Descarga del repositorio la última versión publicada de NABU Setup, en el mism
 
 ```
 Descargando https://raw.githubusercontent.com/czayas/nabu-setup/main/nabu-setup-es.sh
-Instalada: NABU Setup 1.2.0 (2026-10-04)
-Publicada: NABU Setup 1.2.0 (2026-10-04)
+Instalada: NABU Setup 1.3.0 (2026-10-05)
+Publicada: NABU Setup 1.3.0 (2026-10-05)
 Ya tienes la última versión. ¿Instalarla de nuevo? [s/N]
 ```
 
@@ -422,7 +422,7 @@ nabu version
 ```
 
 ```
-NABU Setup 1.2.0 (2026-10-04)
+NABU Setup 1.3.0 (2026-10-05)
 https://github.com/czayas/nabu-setup
 ```
 
@@ -459,7 +459,19 @@ La primera tarjeta resume el estado del servidor y se actualiza cada diez segund
 
 ## Impresiones
 
-Lista las impresiones de la impresora virtual, de la más nueva a la más antigua, con fecha, hora, cantidad de páginas y tamaño. Al tocar una, el PDF se abre en otra pestaña. El panel muestra las 50 más recientes; las anteriores siguen en la carpeta `~/nabu/printer`.
+Arriba están las dos opciones de la impresora virtual:
+
+- **Tipo de letra**: *Matriz de puntos*, *Serif* o *Sans serif*.
+- **Tipo de papel**: *Blanco* o *Formulario continuo*.
+
+Una opción queda guardada al tocarla y vale para lo que se imprima a partir de ese momento. La sección [Letra y papel](#letra-y-papel) muestra cada una.
+
+Debajo está la lista de impresiones, de la más nueva a la más antigua, con fecha, hora, cantidad de páginas y tamaño. Al tocar una, el PDF se abre en otra pestaña. A la derecha de cada una hay dos botones:
+
+- La **flecha circular** rehace esa impresión con la letra y el papel elegidos en ese momento, sin volver a imprimir desde la NABU. La impresión conserva su fecha y su hora.
+- La **X** roja la borra, después de pedir confirmación.
+
+El panel muestra las 50 impresiones más recientes; las anteriores siguen en la carpeta `~/nabu/printer`.
 
 ## Pantalla y Registro
 
@@ -488,7 +500,7 @@ El panel usa HTTP sin cifrado. Está pensado para la red de tu casa.
 
 # La impresora virtual
 
-Cloud CP/M tiene un dispositivo de impresora, `LST:`. El IA guarda todo lo que la NABU envía a ese dispositivo en un archivo de texto llamado `LST.TXT`. La impresora virtual de NABU Setup vigila ese archivo y convierte cada impresión en un PDF con el aspecto de una hoja de papel continuo salida de una impresora de matriz de puntos.
+Cloud CP/M tiene un dispositivo de impresora, `LST:`. El IA guarda todo lo que la NABU envía a ese dispositivo en un archivo de texto llamado `LST.TXT`. La impresora virtual de NABU Setup vigila ese archivo y convierte cada impresión en un PDF. Al principio tiene el aspecto de una hoja de papel continuo salida de una impresora de matriz de puntos; también hay letras de calidad carta y papel en blanco.
 
 ![Parte de una página generada por la impresora virtual.](../img/printout-es.png)
 
@@ -497,7 +509,7 @@ Cloud CP/M tiene un dispositivo de impresora, `LST:`. El IA guarda todo lo que l
 1. Un programa de la NABU imprime en `LST:`.
 2. El IA agrega ese texto al final de `LST.TXT`, dentro de su carpeta `Store`.
 3. Cuando pasan cinco segundos sin que llegue texto nuevo, la impresora virtual da por terminada la impresión.
-4. Genera un PDF en `~/nabu/printer` con la fecha y la hora en el nombre, por ejemplo `print-2026-10-03-094107.pdf`.
+4. Genera un PDF en `~/nabu/printer` con la fecha y la hora en el nombre, por ejemplo `print-2026-10-03-094107.pdf`, con la letra y el papel elegidos en el panel web.
 5. La impresión aparece en la sección *Impresiones* del panel web.
 
 La impresora no modifica `LST.TXT`: solo recuerda hasta dónde leyó.
@@ -542,6 +554,104 @@ Sirve para cualquier archivo de texto, incluso de otra unidad: `PIP LST:=D:DIR.D
 
 > **Nota.** En Cloud CP/M no funciona la combinación Ctrl-P, que en otras versiones de CP/M copia a la impresora todo lo que aparece en pantalla.
 
+## Imprimir desde WordStar
+
+Cloud CP/M incluye WordStar en la unidad A:, área de usuario 6. WordStar imprime en `LST:`, así que cada documento que imprimes termina convertido en un PDF.
+
+1. Desde `A:0>`, cambia de área de usuario e inicia el programa:
+
+    ```
+    USER 6
+    WS
+    ```
+
+2. En el menú inicial, pulsa `D` para abrir un documento y escribe su nombre, por ejemplo `D:CARTA.TXT`. El prefijo `D:` lo guarda en la unidad D: y no en A:, que pertenece a la nube.
+3. Escribe el texto. WordStar pasa solo al renglón siguiente: usa Enter (la tecla GO de la NABU) únicamente al final de cada párrafo.
+4. Guarda con `^KD`, que además vuelve al menú inicial.
+5. Pulsa `P`, escribe el nombre del documento y pulsa Esc en lugar de Enter. Así se omiten las preguntas y empieza la impresión.
+
+El signo `^` indica la tecla Ctrl: `^KD` es Ctrl-K y después la letra D.
+
+| Teclas | Acción |
+|---|---|
+| `^PB` | Activa y desactiva la negrita |
+| `^PS` | Activa y desactiva el subrayado |
+| `^PH` | Imprime el carácter siguiente encima del anterior |
+| `^B` | Reacomoda el párrafo después de una corrección |
+| `^KS` | Guarda y permite seguir escribiendo |
+| `^KD` | Guarda y vuelve al menú inicial |
+
+En el PDF se conservan los márgenes, la justificación del texto, la negrita, el subrayado y el número de página que WordStar agrega al pie.
+
+> **Nota.** La impresión desde WordStar se probó en una NABU real, con el WordStar que trae Cloud CP/M.
+
+## Acentos y eñe
+
+Los programas de CP/M trabajan con ASCII de 7 bits, que no tiene letras acentuadas. El recurso de la época es el de las máquinas de escribir: imprimir la letra y, encima, el acento. La impresora virtual reconoce esa sobreimpresión y dibuja una sola letra acentuada. La letra queda así también en el texto del PDF, de modo que se puede buscar y copiar.
+
+En WordStar, `^PH` hace que el carácter siguiente se imprima encima del anterior:
+
+| Para obtener | Escribe |
+|---|---|
+| á é í ó ú | la vocal, `^PH` y `'` |
+| ü | `u`, `^PH` y `"` |
+| ñ | `n`, `^PH` y `-` |
+| Ñ | `N`, `^PH` y `-` |
+
+En la pantalla de WordStar no aparece la letra acentuada, sino algo como `n^H-`. El resultado se ve al imprimir.
+
+El teclado de la NABU no tiene la tecla `~`. Por eso la impresora también forma la eñe con un guion o con `^` sobre la `n`. Varios guiones seguidos sobre un texto siguen siendo tachado. Si escribes desde un cliente telnet, `n`, `^PH` y `~` da el mismo resultado.
+
+Estas son todas las marcas que reconoce, sobre minúsculas y mayúsculas:
+
+| Marca | Acento | Letras |
+|---|---|---|
+| `'` | Agudo | á é í ó ú ý |
+| `` ` `` | Grave | à è ì ò ù |
+| `^` | Circunflejo | â ê î ô û |
+| `~` | Tilde | ñ ã õ |
+| `"` | Diéresis | ä ë ï ö ü ÿ |
+| `,` | Cedilla | ç |
+
+El mismo método sirve desde otros programas, con el carácter de retroceso. Por ejemplo, en MBASIC:
+
+```
+LPRINT "Asuncio";CHR$(8);"'n, Espan";CHR$(8);"-a"
+```
+
+> **Nota.** Los signos `¿` y `¡` no se pueden formar por sobreimpresión.
+
+## Letra y papel
+
+La impresora virtual tiene tres tipos de letra y dos de papel. Se eligen en la sección *Impresiones* del panel web y valen para las impresiones siguientes.
+
+![Las tres letras: matriz de puntos y serif en formulario continuo, y sans serif en papel blanco.](../img/typefaces-es.png)
+
+| Tipo de letra | Cómo es |
+|---|---|
+| Matriz de puntos | La letra de borrador de una impresora de 9 agujas. Es la inicial |
+| Serif | Calidad carta, con remates, como la de una máquina de escribir |
+| Sans serif | Calidad carta, de palo seco |
+
+| Tipo de papel | Cómo es |
+|---|---|
+| Formulario continuo | Hoja de 9,5 por 11 pulgadas, con franjas verdes y tiras perforadas. Es el inicial |
+| Blanco | Hoja carta lisa, de 8,5 por 11 pulgadas |
+
+Las tres letras tienen el mismo ancho, 10 caracteres por pulgada, así que las columnas y el texto justificado quedan iguales con cualquiera. Las de calidad carta imitan una impresora de 24 agujas: están hechas de puntos más pequeños que se solapan, y solo se distinguen al ampliar mucho la página.
+
+### Rehacer una impresión
+
+Junto a cada PDF, la impresora guarda los datos tal como los envió la NABU, en un archivo con el mismo nombre y la extensión `.lst`. Con esos datos, la flecha circular del panel web rehace la impresión con la letra y el papel elegidos en ese momento. No hace falta volver a imprimir desde la NABU.
+
+Lo mismo se puede hacer desde una terminal:
+
+```
+python3 /usr/local/lib/nabu/nabu-print.py --reprint print-2026-10-03-094107.pdf
+```
+
+> **Nota.** Las impresiones hechas con una versión anterior a la 1.3.0 no tienen esos datos, y por eso no muestran la flecha.
+
 ## Qué entiende la impresora
 
 La página tiene 80 columnas y 66 líneas, como una hoja de 11 pulgadas a 10 caracteres por pulgada. Las líneas más largas continúan en la línea siguiente.
@@ -557,15 +667,11 @@ La página tiene 80 columnas y 66 líneas, como una hoja de 11 pulgadas a 10 car
 | `ESC @` | Reinicia la impresora |
 | Otros códigos de control Epson | Se descartan sin ensuciar la página |
 
-Además reconoce la **sobreimpresión**, el recurso que usan procesadores de texto como WordStar en impresoras simples: vuelven al comienzo de la línea e imprimen encima. El mismo texto dos veces queda en negrita; guiones bajos, subrayado; guiones, tachado.
-
-> **Importante.** La sobreimpresión se probó con datos simulados. La impresión desde WordStar en una NABU real todavía no fue verificada.
-
-Las letras acentuadas y la ñ no existen en el juego de caracteres de la impresora, que es ASCII de 7 bits.
+Además reconoce la **sobreimpresión**, el recurso que usan procesadores de texto como WordStar en impresoras simples: vuelven al comienzo de la línea e imprimen encima. El mismo texto dos veces queda en negrita; guiones bajos, subrayado; guiones, tachado; un acento sobre una letra, la letra acentuada.
 
 ## Dónde quedan los PDF
 
-En la carpeta `~/nabu/printer` de la Pi. Además de abrirlos desde el panel, puedes copiarlos a tu computadora:
+En la carpeta `~/nabu/printer` de la Pi, cada uno junto al archivo `.lst` con sus datos originales. Además de abrirlos desde el panel, puedes copiarlos a tu computadora:
 
 ```
 scp "nabu@nabu.local:nabu/printer/*.pdf" .
@@ -575,10 +681,10 @@ Hay tres cosas que conviene saber sobre esta carpeta:
 
 - **No entra en los backups**, para que sigan siendo livianos.
 - **No se borra al actualizar** el IA ni al reinstalar NABU Setup.
-- **No se limpia sola.** Para borrar impresiones viejas, elimina los archivos; por ejemplo, las de septiembre de 2026:
+- **No se limpia sola.** Puedes borrar impresiones una por una desde el panel web, o eliminar los archivos; por ejemplo, las de septiembre de 2026, con sus datos originales:
 
 ```
-rm ~/nabu/printer/print-2026-09-*.pdf
+rm ~/nabu/printer/print-2026-09-*
 ```
 
 ## Ajustes
@@ -588,7 +694,6 @@ Las opciones están al comienzo del archivo `/usr/local/lib/nabu/nabu-print.py`:
 | Opción | Valor original | Para qué sirve |
 |---|---|---|
 | `WAIT` | `5` | Segundos sin texto nuevo para dar por terminada una impresión |
-| `PAPER` | `True` | Con `False`, la hoja sale lisa y en tamaño carta, sin franjas ni perforaciones |
 | `COLS` | `80` | Columnas por línea |
 | `LPP` | `66` | Líneas por página |
 
@@ -600,9 +705,11 @@ sudo systemctl restart nabu-print
 
 > **Nota.** Al instalar una versión nueva de NABU Setup, este archivo se reemplaza y los ajustes vuelven a sus valores originales.
 
+La letra y el papel no están entre estas opciones: se eligen en el panel web y se guardan en `~/nabu/printer/.settings.json`, que no cambia al instalar una versión nueva.
+
 ## Convertir un archivo a mano
 
-El mismo programa convierte cualquier archivo de texto en un PDF:
+El mismo programa convierte cualquier archivo de texto en un PDF, con la letra y el papel elegidos en el panel web:
 
 ```
 python3 /usr/local/lib/nabu/nabu-print.py entrada.txt salida.pdf
@@ -620,7 +727,9 @@ Un backup es un archivo .zip con tus datos del IA:
 
 Quedan fuera el propio programa del IA, la caché de descargas, los archivos de registro y los PDF de la impresora virtual. Todo eso se puede volver a descargar o a generar.
 
-Los backups se guardan en `~/backups` con la fecha y la hora en el nombre. Se conservan los cinco más recientes y los anteriores se borran solos.
+Los backups se guardan en `~/nabu/backups` con la fecha y la hora en el nombre. Se conservan los cinco más recientes y los anteriores se borran solos. Esa carpeta tampoco entra en los backups.
+
+> **Nota.** Hasta la versión 1.2.0 los backups se guardaban en `~/backups`. Al instalar la 1.3.0, los que haya en esa carpeta se mudan solos a la nueva.
 
 ## Cuándo se crean
 
@@ -637,7 +746,7 @@ NABU Setup no programa backups periódicos. Si quieres uno por semana, agrega un
 > **Importante.** Los backups están en la misma tarjeta microSD que los datos originales. Si la tarjeta falla, se pierden los dos. Cada tanto, descarga uno desde el panel o cópialo a tu computadora:
 
 ```
-scp "nabu@nabu.local:backups/*.zip" .
+scp "nabu@nabu.local:nabu/backups/*.zip" .
 ```
 
 ## Restaurar un backup
@@ -646,7 +755,7 @@ Detén el IA, descomprime el backup en tu carpeta personal y vuelve a iniciarlo:
 
 ```
 nabu stop
-unzip -o ~/backups/nabu-backup-2026-10-03-1811.zip -d ~
+unzip -o ~/nabu/backups/nabu-backup-2026-10-03-1811.zip -d ~
 nabu start
 ```
 
@@ -715,9 +824,9 @@ Si el problema es del propio Internet Adapter o de un programa de la NABU, los l
 | `~/nabu/NABU Internet Adapter/Store/` | Unidades de Cloud CP/M y `LST.TXT` |
 | `~/nabu/NABU Internet Adapter/Local Source/` | Programas locales |
 | `~/nabu/NABU Internet Adapter/Cache/` | Descargas de la nube |
-| `~/nabu/printer/` | PDF de la impresora virtual |
+| `~/nabu/printer/` | PDF de la impresora virtual, sus datos originales (`.lst`) y la elección de letra y papel |
 | `~/nabu/ia-error.log` | Errores del IA |
-| `~/backups/` | Backups |
+| `~/nabu/backups/` | Backups |
 | `/usr/local/bin/nabu` | Comando de administración |
 | `/usr/local/lib/nabu/` | Panel web, impresora virtual y herramienta de backup |
 | `/etc/nabu-ia.conf` | Rutas, versión y fecha de NABU Setup |
@@ -761,7 +870,7 @@ sudo rm -r /usr/local/lib/nabu
 sudo systemctl daemon-reload
 ```
 
-Para borrar también el IA, tus archivos de CP/M, las impresiones y los backups, elimina las carpetas `~/nabu` y `~/backups`. Esa parte no se puede deshacer.
+Para borrar también el IA, tus archivos de CP/M, las impresiones y los backups, elimina la carpeta `~/nabu`. Esa parte no se puede deshacer.
 
 # Recursos y créditos
 
@@ -777,6 +886,8 @@ Para borrar también el IA, tus archivos de CP/M, las impresiones y los backups,
 ## Créditos
 
 El NABU Internet Adapter, Cloud CP/M y RetroNET son obra de DJ Sures. NABU Setup solo automatiza su instalación en una Raspberry Pi y agrega herramientas de administración.
+
+Las letras de calidad carta de la impresora virtual se obtuvieron de Courier 10 Pitch y DejaVu Sans Mono, dos tipografías de licencia libre. Sus avisos de derechos están en el archivo `NOTICE.md` del repositorio.
 
 NABU Setup y este manual son un proyecto de Retro Informática Paraguay.
 
@@ -802,3 +913,4 @@ La licencia cubre solamente NABU Setup. El NABU Internet Adapter es un programa 
 | 1 | 2026-10-03 | 1.0.0 | Primera publicación |
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: comando `nabu poweroff` y botón **Apagar la Pi** en el panel web |
 | 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` para actualizar NABU Setup |
+| 4 | 2026-10-05 | 1.3.0 | Letras acentuadas y eñe en la impresora virtual, impresión desde WordStar, elección de letra y papel, borrado y reimpresión desde el panel web, y backups en `~/nabu/backups` |
