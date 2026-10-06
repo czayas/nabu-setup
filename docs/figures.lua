@@ -4,6 +4,7 @@ local widths = {
   ["architecture"] = "100%",
   ["panel"] = "48%",
   ["printout"] = "100%",
+  ["typefaces"] = "100%",
 }
 
 function Image(img)
