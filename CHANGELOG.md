@@ -13,6 +13,8 @@ NABU Setup and its manual are versioned separately. The script uses version numb
 - On the panel, the IA screen fits the width on its own and shows in full, with no horizontal scroll bar; tap it to enlarge it. Long log lines wrap onto the next line.
 - The panel shows a visible banner when it cannot reach the Pi, turns the indicators gray instead of showing old data, and recovers on its own when the Pi is back, also after **Shut down the Pi**. It refreshes right away when you return to its tab and reloads on its own when a new release is installed.
 - The panel has its own icon and name for adding it to a phone's home screen. With a `~/nabu/icon.png` file, your own icon is used.
+- New local telnet, for logging in to the Pi from a terminal program on the NABU. It only accepts connections from the Pi itself (`127.0.0.1`). The installer asks only once whether to turn it on, and the new `nabu telnet` command shows it, turns it on (`on`), and turns it off (`off`).
+- The repository now includes `tools/lq-fonts.py`, the program that builds the virtual printer's letter-quality typefaces.
 - Removed the automatic move of backups from `~/backups` to `~/nabu/backups`. Anyone updating from 1.2.0 or earlier can move them by hand.
 
 ## NABU Setup 1.3.0 (2026-10-05)
@@ -51,7 +53,7 @@ First public release.
 
 | Revision | Date | NABU Setup | Changes |
 |---|---|---|---|
-| 5 | 2026-10-07 | 1.4.0 | IA startup without waiting for the network; on the web panel, news, notices, a screen fitted to the width, a lost-connection notice, and an icon for the phone |
+| 5 | 2026-10-07 | 1.4.0 | IA startup without waiting for the network; on the web panel, news, notices, a screen fitted to the width, a lost-connection notice, and an icon for the phone; local telnet |
 | 4 | 2026-10-05 | 1.3.0 | Accented letters, printing from WordStar, typeface and paper, deleting and redoing printouts, backups folder |
 | 3 | 2026-10-04 | 1.2.0 | `nabu setup` command |
 | 2 | 2026-10-04 | 1.1.0 | Safe shutdown: `nabu poweroff` and the panel button |

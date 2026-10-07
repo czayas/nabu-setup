@@ -19,6 +19,8 @@
 #     that also shows the news from the NABU cloud
 #   - Installs the virtual printer: whatever the NABU sends to LST: from Cloud CP/M
 #     is saved as a PDF in ~/nabu/printer and shows up on the panel
+#   - Installs the local telnet, for logging in to the Pi from a NABU terminal;
+#     it only accepts connections from the Pi itself (127.0.0.1)
 #
 # Usage (on the Pi, as your regular user, NOT with sudo):
 #   bash nabu-setup-en.sh
@@ -104,7 +106,27 @@ if [[ $ASK_PW -eq 1 ]]; then
   done
 fi
 
-PACKAGES="tmux unzip wget python3"
+# ---------------------------------------------------------------------------
+# Local telnet (asked only once; change it later with nabu telnet on|off)
+# ---------------------------------------------------------------------------
+ASK_TELNET=1
+grep -qs '^NABU_TELNET_ASKED=' /etc/nabu-ia.conf && ASK_TELNET=0
+TELNET_ON=1
+if [[ $ASK_TELNET -eq 1 ]]; then
+  echo "The local telnet lets you log in to the Pi from a NABU terminal."
+  echo "It only accepts connections from the Pi itself (127.0.0.1)."
+  read -rp "Turn the local telnet on? [Y/n] " r || true
+  [[ "${r,,}" == n* ]] && TELNET_ON=0
+fi
+
+# inetutils-telnetd brings inetd along, which would open port 23 to the whole
+# network. If it was not installed, it is masked before installing it: the local
+# telnet uses its own systemd unit, which listens on 127.0.0.1 only.
+if ! dpkg -s inetutils-inetd >/dev/null 2>&1; then
+  sudo systemctl mask inetutils-inetd.service >/dev/null 2>&1 || true
+fi
+
+PACKAGES="tmux unzip wget python3 inetutils-telnetd"
 if dpkg -s $PACKAGES >/dev/null 2>&1; then
   echo "==> Packages already installed"
 else
@@ -168,6 +190,7 @@ NABU_URL="$URL"
 NABU_PORT="$PORT"
 NABU_PRINT_DIR="$PRINT_DIR"
 NABU_BACKUP_DIR="$BACKUP_DIR"
+NABU_TELNET_ASKED="yes"
 NABU_SETUP_VERSION="$NABU_SETUP_VERSION"
 NABU_SETUP_DATE="$NABU_SETUP_DATE"
 NABU_SETUP_LANG="$NABU_SETUP_LANG"
@@ -218,6 +241,20 @@ PRINT_DIR="${NABU_PRINT_DIR:-$NABU_DIR/printer}"
 BACKUP_DIR="${NABU_BACKUP_DIR:-$NABU_DIR/backups}"
 VERSION="NABU Setup ${NABU_SETUP_VERSION:-?} (${NABU_SETUP_DATE:-?})"
 
+telnet_state() {
+  if [[ "$(systemctl is-active nabu-telnet.socket 2>/dev/null)" == active ]]; then
+    echo "Local telnet: on (127.0.0.1, port 23)"
+  else
+    echo "Local telnet: off"
+  fi
+  # port 23 must not be left open to the rest of the network
+  if command -v ss >/dev/null && ss -Hltn 'sport = :23' 2>/dev/null \
+       | awk '{print $4}' | grep -qv '^127\.0\.0\.1:'; then
+    echo "WARNING: port 23 is also open to other addresses."
+    echo "         Another telnet service is running. Check: ss -ltn 'sport = :23'"
+  fi
+}
+
 usage() {
   cat <<TXT
 $VERSION
@@ -235,6 +272,8 @@ Usage: nabu [command]
                   ${BACKUP_DIR/#$HOME/\~} (the latest 5 are kept)
   nabu update     Downloads the latest IA release (makes a backup first)
   nabu setup      Downloads and installs the latest published NABU Setup release
+  nabu telnet     Shows whether the local telnet is on; on or off changes it
+                  (it lets you log in to the Pi from a NABU terminal)
   nabu poweroff   Shuts the Pi down safely; after that you can cut the power
   nabu version    Shows the NABU Setup version and release date
   nabu help       Shows this help
@@ -261,6 +300,7 @@ case "${1:-}" in
     else
       echo "Virtual printer: stopped"
     fi
+    telnet_state
     if command -v vcgencmd >/dev/null; then
       vcgencmd measure_temp
       t=$(vcgencmd get_throttled | cut -d= -f2)
@@ -321,6 +361,14 @@ case "${1:-}" in
     fi
     echo
     exec bash "$tmp" ;;
+  telnet)
+    case "${2:-}" in
+      on)  sudo systemctl enable -q --now nabu-telnet.socket ;;
+      off) sudo systemctl disable -q --now nabu-telnet.socket ;;
+      "")  ;;
+      *)   echo "Usage: nabu telnet [on|off]"; exit 1 ;;
+    esac
+    telnet_state ;;
   poweroff)
     echo "Shutting down the Pi. Wait until the green LED stops blinking before cutting the power."
     exec sudo systemctl poweroff ;;
@@ -2222,9 +2270,43 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+echo "==> Creating the nabu-telnet systemd service (local telnet)"
+TELNETD=/usr/sbin/telnetd
+for p in /usr/sbin/telnetd /usr/sbin/in.telnetd /usr/libexec/telnetd; do
+  if [[ -x "$p" ]]; then TELNETD="$p"; break; fi
+done
+sudo tee /etc/systemd/system/nabu-telnet.socket >/dev/null <<EOF
+[Unit]
+Description=Local telnet for the NABU server (127.0.0.1 only)
+
+[Socket]
+ListenStream=127.0.0.1:23
+Accept=yes
+
+[Install]
+WantedBy=sockets.target
+EOF
+sudo tee /etc/systemd/system/nabu-telnet@.service >/dev/null <<EOF
+[Unit]
+Description=Local telnet session on the NABU server
+
+[Service]
+ExecStart=$TELNETD
+StandardInput=socket
+EOF
+
 sudo systemctl daemon-reload
 sudo systemctl enable nabu-ia nabu-web nabu-print
 sudo systemctl restart nabu-web nabu-print
+# The local telnet is only turned on or off the one time the question is asked
+if [[ $ASK_TELNET -eq 1 ]]; then
+  if [[ $TELNET_ON -eq 1 ]]; then
+    sudo systemctl enable -q --now nabu-telnet.socket \
+      || echo "Could not turn the local telnet on. Try later: nabu telnet on"
+  else
+    sudo systemctl disable -q --now nabu-telnet.socket 2>/dev/null || true
+  fi
+fi
 
 IP="$(hostname -I | awk '{print $1}')"
 echo
@@ -2243,5 +2325,7 @@ echo "  - Web panel:  http://$(hostname).local   or   http://$IP"
 echo "                user: nabu"
 echo "  - Printer:    whatever you print from Cloud CP/M (LST:) shows up as a PDF"
 echo "                on the panel and in $PRINT_DIR"
+echo "  - Telnet:     from a NABU terminal, to 127.0.0.1 port 23"
+echo "                (nabu telnet shows whether it is on; on or off changes it)"
 echo "  - Help:       nabu help"
 echo "  - Manual:     $NABU_SETUP_REPO"

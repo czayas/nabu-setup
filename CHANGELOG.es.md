@@ -13,6 +13,8 @@ NABU Setup y su manual llevan numeraciones separadas. El script usa números de 
 - En el panel, la pantalla del IA se ajusta sola al ancho y entra completa, sin barra horizontal; al tocarla se amplía. Las líneas largas del registro continúan en el renglón siguiente.
 - El panel avisa con una franja visible cuando pierde la conexión con la Pi, deja los indicadores en gris en lugar de mostrar datos viejos y se recupera solo cuando la Pi vuelve, también después de **Apagar la Pi**. Se actualiza en el momento al volver a la pestaña y se recarga solo cuando se instala una versión nueva.
 - El panel tiene ícono y nombre propios para agregarlo a la pantalla de inicio de un teléfono. Con un archivo `~/nabu/icon.png` se usa un ícono propio.
+- Nuevo telnet local, para iniciar sesión en la Pi desde un programa de terminal de la NABU. Solo acepta conexiones desde la propia Pi (`127.0.0.1`). El instalador pregunta una sola vez si se activa, y el comando nuevo `nabu telnet` lo muestra, lo activa (`on`) y lo desactiva (`off`).
+- El repositorio incluye `tools/lq-fonts.py`, el programa que genera las letras de calidad carta de la impresora virtual.
 - Se quitó la mudanza automática de los backups de `~/backups` a `~/nabu/backups`. Quien actualice desde la 1.2.0 o una anterior puede moverlos a mano.
 
 ## NABU Setup 1.3.0 (2026-10-05)
@@ -51,7 +53,7 @@ Primera versión publicada.
 
 | Revisión | Fecha | NABU Setup | Cambios |
 |---|---|---|---|
-| 5 | 2026-10-07 | 1.4.0 | Arranque del IA sin esperar a la red; en el panel web, novedades, avisos, pantalla ajustada al ancho, aviso de conexión perdida e ícono para el teléfono |
+| 5 | 2026-10-07 | 1.4.0 | Arranque del IA sin esperar a la red; en el panel web, novedades, avisos, pantalla ajustada al ancho, aviso de conexión perdida e ícono para el teléfono; telnet local |
 | 4 | 2026-10-05 | 1.3.0 | Acentos y eñe, impresión desde WordStar, letra y papel, borrado y reimpresión, carpeta de backups |
 | 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` |
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: `nabu poweroff` y el botón del panel |

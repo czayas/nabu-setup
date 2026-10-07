@@ -34,6 +34,7 @@ This is what it installs:
 - **A password-protected web panel**, for checking and controlling the server from a browser on a computer or a phone. It also shows the news from nabu.ca.
 - **A virtual printer**: whatever the NABU sends to the printer from CP/M becomes a PDF, in a dot-matrix or letter-quality typeface, on continuous or blank paper.
 - **Backups**, as .zip files, of your CP/M files and of the settings.
+- **A local telnet**, for logging in to the Pi from a terminal program on the NABU.
 
 ![The parts of a NABU server installed with NABU Setup.](../img/architecture-en.png)
 
@@ -212,13 +213,18 @@ Run it as your regular user, without `sudo`. The script asks for administrator r
 
 The first thing it does is ask you for a **password for the web panel**. Type it twice; it is not shown on screen. The panel user is always `nabu`, even if your user on the Pi is a different one.
 
-After that it works on its own. You will see something like this:
+Then it asks whether you want to turn on the **local telnet**, which lets you log in to the Pi from a NABU terminal. Pressing Enter turns it on; the chapter [The local telnet](#the-local-telnet) explains it.
+
+From there it works on its own. You will see something like this:
 
 ```
 NABU Setup 1.4.0 (2026-10-07)
 
 Password for the web panel (user: nabu):
 Type it again:
+The local telnet lets you log in to the Pi from a NABU terminal.
+It only accepts connections from the Pi itself (127.0.0.1).
+Turn the local telnet on? [Y/n]
 ==> Installing packages
 ==> Giving nabu access to the serial port and the system log
 ==> Downloading the Internet Adapter (linux-arm64.zip)
@@ -235,6 +241,7 @@ Type it again:
 ==> Installing the web panel
 ==> Creating the nabu-web systemd service
 ==> Creating the nabu-print systemd service
+==> Creating the nabu-telnet systemd service (local telnet)
 
 Installation complete. Reboot the Pi so the new permissions take effect:
     sudo reboot
@@ -310,6 +317,7 @@ The whole server is managed with a single command.
 | `nabu backup` | Creates a backup |
 | `nabu update` | Updates the IA to the latest release |
 | `nabu setup` | Updates NABU Setup to the latest published release |
+| `nabu telnet` | Shows whether the local telnet is on; `on` or `off` changes it |
 | `nabu poweroff` | Shuts the Pi down safely |
 | `nabu version` | Shows the NABU Setup version and release date |
 | `nabu help` | Shows the help |
@@ -343,6 +351,7 @@ Sample output:
 
 crw-rw---- 1 root dialout 188, 0 Oct  3 09:12 /dev/ttyUSB0
 Virtual printer: running (printouts in ~/nabu/printer: 4)
+Local telnet: on (127.0.0.1, port 23)
 temp=47.2'C
 Power supply: OK
 ```
@@ -352,6 +361,7 @@ Power supply: OK
 | `Active:` | Whether the IA is running (`active`), stopped (`inactive`), or failed (`failed`) |
 | `/dev/ttyUSB0` | That the RS-422 adapter is plugged in. If it is missing, it reads `RS422 adapter: NOT detected` |
 | `Virtual printer` | Whether the print service is running and how many PDFs are stored |
+| `Local telnet` | Whether the local telnet is on |
 | `temp=` | The processor temperature |
 | `Power supply` | `OK`, or `PROBLEMS` if the Pi has detected undervoltage or overheating since it booted |
 
@@ -408,6 +418,16 @@ If you already have the latest, as in this example, or if the installed one is n
 The rest is the same as a manual installation; the details are in the [Updating NABU Setup](#updating-nabu-setup) section.
 
 > **Note.** Do not confuse this command with `nabu update`, which updates the Internet Adapter.
+
+## `nabu telnet`: the local telnet
+
+```
+nabu telnet
+nabu telnet on
+nabu telnet off
+```
+
+With nothing else, it shows whether the local telnet is on. `on` turns it on and `off` turns it off. The chapter [The local telnet](#the-local-telnet) explains what it is for and how to connect from the NABU.
 
 ## `nabu poweroff`: shutting down the Pi
 
@@ -812,6 +832,47 @@ nabu start
 
 The files in the backup replace the ones with the same name. Newer files that were not in the backup are not deleted.
 
+# The local telnet
+
+The local telnet lets you log in to the Pi from the NABU itself, with a terminal program. That way the NABU works as its server's console.
+
+## How it works
+
+Terminal programs on the NABU do not open the connection themselves: they ask the IA, which runs on the Pi, to do it. So when the NABU connects to `127.0.0.1`, the local address, it reaches the Pi itself.
+
+NABU Setup takes advantage of that and sets up the telnet service to accept connections from `127.0.0.1` only. No other device on your network can get in through telnet, even though that protocol encrypts nothing.
+
+## Turning it on and off
+
+The first time it runs, the installation script asks whether you want to turn the local telnet on. Pressing Enter turns it on. It does not ask again on updates. After that you manage it with the `nabu` command:
+
+| Command | What it does |
+|---|---|
+| `nabu telnet` | Shows whether it is on |
+| `nabu telnet on` | Turns it on. It stays on after the Pi restarts |
+| `nabu telnet off` | Turns it off. Sessions that are open go on until they are closed |
+
+`nabu telnet` and `nabu status` warn you if port 23 is open to other addresses, which would mean another telnet service is running.
+
+## Connecting from the NABU
+
+1. Load a terminal program. On the NABU menu, **NABU Term80** is in the *Utilities* group. It works at 80 columns and needs a NABU with the F18A board; **NABU Term** is the 40-column version. From Cloud CP/M, the same programs are on drive `N:`, user area 2: `NTERM80` and `NTERM`.
+2. Enter `127.0.0.1` as the host and `23` as the port.
+3. Log in with your user on the Pi and its password.
+4. Fit the session to the size of the screen:
+
+```
+stty cols 80 rows 24
+```
+
+With a 40-column program, use `cols 40`.
+
+## Things to keep in mind
+
+- **Do not stop or restart the IA from that session.** The connection goes through the IA: `nabu stop`, `nabu restart`, and `nabu update` cut it off.
+- **The password travels unencrypted** over the cable between the NABU and the Pi. It does not go out on the network.
+- **The cursor does not show.** In the tests done with NABU Term80 and with the CP/M terminal, the session works but the cursor does not appear.
+
 # Updates
 
 Three things on the server are updated separately.
@@ -898,8 +959,9 @@ If the problem lies with the Internet Adapter itself or with a NABU program, the
 | `nabu-ia` | The Internet Adapter, inside a `tmux` session. It starts without waiting for the network |
 | `nabu-web` | The web panel, on port 80. It starts once the Pi is online |
 | `nabu-print` | The virtual printer |
+| `nabu-telnet.socket` | The local telnet, on port 23 of `127.0.0.1`. Only if it is turned on |
 
-All three start with the Pi. You can check them with `systemctl status` and read their log with `journalctl -u`, followed by the service name.
+They all start with the Pi. You can check them with `systemctl status` and read their log with `journalctl -u`, followed by the service name.
 
 ## Shutting down the Pi
 
@@ -920,13 +982,21 @@ To turn it back on, cut the power and restore it. Powering on carries no risk.
 These commands remove everything NABU Setup installed and leave your data untouched:
 
 ```
-sudo systemctl disable --now nabu-ia nabu-web nabu-print
+sudo systemctl disable --now nabu-ia nabu-web nabu-print nabu-telnet.socket
 sudo rm /etc/systemd/system/nabu-ia.service /etc/systemd/system/nabu-web.service
+sudo rm /etc/systemd/system/nabu-telnet.socket /etc/systemd/system/nabu-telnet@.service
 sudo rm /etc/systemd/system/nabu-print.service /etc/sudoers.d/nabu
 sudo rm /etc/nabu-ia.conf /etc/nabu-web.conf /usr/local/bin/nabu
 sudo rm -r /usr/local/lib/nabu
 sudo systemctl daemon-reload
 rm -rf ~/.cache/nabu-setup
+```
+
+The telnet service's package stays installed, unused. To remove it as well:
+
+```
+sudo apt remove inetutils-telnetd inetutils-inetd
+sudo systemctl unmask inetutils-inetd.service
 ```
 
 To also delete the IA, your CP/M files, the printouts, and the backups, remove the `~/nabu` folder. That part cannot be undone.
@@ -973,4 +1043,4 @@ The license covers NABU Setup only. The NABU Internet Adapter is a separate prog
 | 2 | 2026-10-04 | 1.1.0 | Safe shutdown: `nabu poweroff` command and **Shut down the Pi** button on the web panel |
 | 3 | 2026-10-04 | 1.2.0 | `nabu setup` command for updating NABU Setup |
 | 4 | 2026-10-05 | 1.3.0 | Accented letters on the virtual printer, printing from WordStar, choice of typeface and paper, deleting and redoing printouts from the web panel, and backups in `~/nabu/backups` |
-| 5 | 2026-10-07 | 1.4.0 | IA startup without waiting for the network; on the web panel, nabu.ca news, notices, the IA screen fitted to the width, a lost-connection notice, and an icon for the phone |
+| 5 | 2026-10-07 | 1.4.0 | IA startup without waiting for the network; on the web panel, nabu.ca news, notices, the IA screen fitted to the width, a lost-connection notice, and an icon for the phone; local telnet |

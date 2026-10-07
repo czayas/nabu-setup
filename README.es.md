@@ -15,8 +15,9 @@ Versión actual: **1.4.0**, publicada el 2026-10-07. Consulta el [registro de ca
 - **Un panel web** en el puerto 80, protegido con contraseña, con indicadores de estado, botones de control (incluido el apagado seguro), una vista en vivo de la pantalla del Internet Adapter, el registro del servicio y las novedades de nabu.ca. Avisa cuando hay una versión nueva del Internet Adapter y cuando pierde la conexión con la Pi, y se puede abrir desde un ícono en la pantalla del teléfono.
 - **Una impresora virtual.** Lo que la NABU imprime en el dispositivo `LST:` desde Cloud CP/M se convierte en un PDF. Se puede elegir entre una letra de matriz de puntos y dos de calidad carta, y entre papel continuo y papel blanco. Admite negrita, subrayado, la sobreimpresión que usa WordStar y letras acentuadas.
 - **Backups** de las unidades de CP/M, los programas locales y la configuración, en archivos .zip. Se conservan los últimos cinco.
+- **Un telnet local**, para iniciar sesión en la Pi desde un programa de terminal de la NABU. Solo acepta conexiones desde la propia Pi y se puede desactivar.
 
-Todo lo que no es el Internet Adapter está hecho en Bash y Python, sin más bibliotecas que las estándar.
+Todo lo que no es el Internet Adapter está hecho en Bash y Python, sin más bibliotecas que las estándar. El servicio de telnet es el del sistema (`inetutils-telnetd`).
 
 ## Requisitos
 
@@ -51,6 +52,7 @@ Hay dos ediciones con el mismo código y distinto idioma: `nabu-setup-es.sh` (es
 | `nabu backup` | Guarda un backup en `~/nabu/backups` |
 | `nabu update` | Actualiza el Internet Adapter, después de hacer un backup |
 | `nabu setup` | Actualiza el propio NABU Setup a la última versión publicada |
+| `nabu telnet` | Muestra si el telnet local está activo; con `on` u `off` lo cambia |
 | `nabu poweroff` | Apaga la Pi de forma segura antes de cortar la corriente |
 | `nabu version` | Muestra la versión y la fecha de NABU Setup |
 | `nabu help` | Muestra la ayuda |
@@ -81,6 +83,6 @@ NABU Setup y su documentación se publican bajo la [licencia BSD de 2 cláusulas
 
 El NABU Internet Adapter, Cloud CP/M y RetroNET son obra de DJ Sures ([nabu.ca](https://nabu.ca)). NABU Setup es un proyecto independiente y no está afiliado a nabu.ca.
 
-Las letras de calidad carta de la impresora virtual se obtuvieron de Courier 10 Pitch y DejaVu Sans Mono. Sus avisos de derechos están en [NOTICE.md](NOTICE.md).
+Las letras de calidad carta de la impresora virtual se obtuvieron de Courier 10 Pitch y DejaVu Sans Mono. Sus avisos de derechos están en [NOTICE.md](NOTICE.md), y el programa que genera esas letras, en [tools/lq-fonts.py](tools/lq-fonts.py).
 
 NABU Setup es un proyecto de Retro Informática Paraguay: <https://www.youtube.com/@retroinfopy>
