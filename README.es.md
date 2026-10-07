@@ -4,7 +4,7 @@
 
 NABU Setup es un script de instalación que convierte una Raspberry Pi en un pequeño servidor para la [computadora NABU](https://en.wikipedia.org/wiki/NABU_Network). Descarga el [NABU Internet Adapter](https://nabu.ca/downloads-nabu-internet-adapter) oficial, lo deja funcionando como servicio y agrega las herramientas para administrarlo desde una terminal o desde un teléfono.
 
-Versión actual: **1.4.0**, publicada el 2026-10-06. Consulta el [registro de cambios](CHANGELOG.es.md).
+Versión actual: **1.4.0**, publicada el 2026-10-07. Consulta el [registro de cambios](CHANGELOG.es.md).
 
 ![Componentes de un servidor NABU instalado con NABU Setup](docs/img/architecture-es.png)
 
@@ -12,7 +12,7 @@ Versión actual: **1.4.0**, publicada el 2026-10-06. Consulta el [registro de ca
 
 - **El NABU Internet Adapter como servicio.** Arranca cuando se enciende la Pi, sin esperar a la red, y se reinicia si se cierra. Corre dentro de una sesión de `tmux`, así que puedes abrir su interfaz de texto por SSH y dejarlo en marcha.
 - **El comando `nabu`**, para consultar, iniciar, detener y actualizar el servidor, hacer backups y apagar la Pi de forma segura.
-- **Un panel web** en el puerto 80, protegido con contraseña, con indicadores de estado, botones de control (incluido el apagado seguro), una vista en vivo de la pantalla del Internet Adapter, el registro del servicio y las novedades de nabu.ca. Avisa cuando hay una versión nueva del Internet Adapter.
+- **Un panel web** en el puerto 80, protegido con contraseña, con indicadores de estado, botones de control (incluido el apagado seguro), una vista en vivo de la pantalla del Internet Adapter, el registro del servicio y las novedades de nabu.ca. Avisa cuando hay una versión nueva del Internet Adapter y cuando pierde la conexión con la Pi, y se puede abrir desde un ícono en la pantalla del teléfono.
 - **Una impresora virtual.** Lo que la NABU imprime en el dispositivo `LST:` desde Cloud CP/M se convierte en un PDF. Se puede elegir entre una letra de matriz de puntos y dos de calidad carta, y entre papel continuo y papel blanco. Admite negrita, subrayado, la sobreimpresión que usa WordStar y letras acentuadas.
 - **Backups** de las unidades de CP/M, los programas locales y la configuración, en archivos .zip. Se conservan los últimos cinco.
 

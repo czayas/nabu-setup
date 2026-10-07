@@ -7,9 +7,9 @@ babel: "spanish,es-tabla,es-noshorthands,es-nolayout"
 papersize: a4
 publisher: "Retro Informática Paraguay"
 script-version: "1.4.0"
-script-date: "2026-10-06"
+script-date: "2026-10-07"
 manual-revision: "5"
-date: "6 de octubre de 2026"
+date: "7 de octubre de 2026"
 repo: "https://github.com/czayas/nabu-setup"
 channel: "https://www.youtube.com/@retroinfopy"
 footer: "NABU Setup 1.4.0 · Manual, revisión 5"
@@ -215,7 +215,7 @@ Lo primero que hace es pedirte una **contraseña para el panel web**. Escríbela
 Después trabaja solo. En pantalla verás algo así:
 
 ```
-NABU Setup 1.4.0 (2026-10-06)
+NABU Setup 1.4.0 (2026-10-07)
 
 Contraseña para el panel web (usuario: nabu):
 Repítela:
@@ -398,8 +398,8 @@ Descarga del repositorio la última versión publicada de NABU Setup, en el mism
 
 ```
 Descargando https://raw.githubusercontent.com/czayas/nabu-setup/main/nabu-setup-es.sh
-Instalada: NABU Setup 1.4.0 (2026-10-06)
-Publicada: NABU Setup 1.4.0 (2026-10-06)
+Instalada: NABU Setup 1.4.0 (2026-10-07)
+Publicada: NABU Setup 1.4.0 (2026-10-07)
 Ya tienes la última versión. ¿Instalarla de nuevo? [s/N]
 ```
 
@@ -426,7 +426,7 @@ nabu version
 ```
 
 ```
-NABU Setup 1.4.0 (2026-10-06)
+NABU Setup 1.4.0 (2026-10-07)
 https://github.com/czayas/nabu-setup
 ```
 
@@ -444,7 +444,7 @@ Abre `http://nabu.local` en un navegador. Si esa dirección no responde, usa la 
 
 ## Indicadores de estado
 
-La primera tarjeta resume el estado del servidor y se actualiza cada diez segundos. Verde significa que todo está bien.
+La primera tarjeta resume el estado del servidor y se actualiza cada diez segundos. También se actualiza en el momento cuando vuelves a la pestaña del panel o desbloqueas el teléfono. Verde significa que todo está bien.
 
 | Indicador | Qué muestra |
 |---|---|
@@ -453,13 +453,25 @@ La primera tarjeta resume el estado del servidor y se actualiza cada diez segund
 | Temperatura | La del procesador. Pasa a amarillo desde 70 °C y a rojo desde 80 °C |
 | Alimentación | OK, o *Problemas* si la Pi detectó baja tensión |
 
+## Si se pierde la conexión
+
+Cuando el panel deja de recibir respuesta de la Pi, a los pocos segundos muestra arriba una franja roja, **Sin conexión con la Pi**, con el tiempo transcurrido desde el último contacto. El título de la pestaña también cambia, para que se note desde otra.
+
+![El panel cuando la Pi no responde.](../img/panel-lost-es.png)
+
+- Los indicadores quedan en gris y los botones no responden, para no mostrar datos viejos como si fueran actuales.
+- El panel sigue reintentando cada diez segundos. Cuando la Pi vuelve a responder, la franja desaparece y todo se actualiza solo, sin recargar la página.
+- El aviso es el mismo si la Pi está apagada, si se cortó la red o si el servicio del panel está detenido: el navegador no puede distinguir un caso de otro.
+
+Cuando instalas una versión nueva de NABU Setup, los paneles que estén abiertos se recargan solos.
+
 ## Botones
 
 - **Reiniciar** reinicia el IA.
 - **Detener** lo detiene, después de pedir confirmación. Con el IA detenido, el mismo botón pasa a decir **Iniciar**.
 - **Backup** crea un backup y lo descarga al dispositivo desde el que estás usando el panel.
 - **Actualizar IA** hace lo mismo que `nabu update`. Puede tardar unos minutos; al terminar, el panel muestra el resultado.
-- **Apagar la Pi** hace lo mismo que `nabu poweroff`, después de pedir confirmación. El panel deja de responder enseguida: espera a que el LED verde de la Pi deje de parpadear antes de cortar la corriente.
+- **Apagar la Pi** hace lo mismo que `nabu poweroff`, después de pedir confirmación. El panel muestra el aviso de apagado: espera a que el LED verde de la Pi deje de parpadear antes de cortar la corriente. Cuando vuelvas a encender la Pi, el panel se recupera solo.
 
 Debajo de los botones aparecen dos avisos, cuando corresponde:
 
@@ -502,6 +514,23 @@ El panel las consulta por su cuenta en `cloud.nabu.ca`, sin pasar por el IA. Hac
 
 Al pie del panel figuran la versión y la fecha de NABU Setup.
 
+## Abrirlo desde un ícono del teléfono
+
+Para abrir el panel con un toque, agrégalo a la pantalla de inicio del teléfono:
+
+- **Chrome en Android:** abre el panel, toca el menú de los tres puntos y elige *Agregar a la pantalla principal*.
+- **Safari en iPhone:** abre el panel, toca *Compartir* y elige *Agregar a inicio*.
+
+El acceso directo se llama **NABU** y lleva el ícono del panel. Al tocarlo, el panel se abre en el navegador. Los navegadores solo instalan una página como aplicación de pantalla completa cuando se sirve por HTTPS, y el panel usa HTTP dentro de tu red.
+
+Para usar otro ícono, copia a la Pi una imagen PNG cuadrada, de 512 píxeles de lado o más, con el nombre `~/nabu/icon.png`:
+
+```
+scp mi-icono.png nabu@nabu.local:nabu/icon.png
+```
+
+El panel la usa desde ese momento, sin reiniciar nada. Los accesos directos que ya existían conservan el ícono anterior: bórralos y agrégalos de nuevo. El archivo entra en los backups; si lo borras, el panel vuelve a su ícono.
+
 ## Cambiar la contraseña
 
 Vuelve a ejecutar el script de instalación. Cuando pregunte si quieres cambiar la contraseña, responde `s`:
@@ -518,6 +547,7 @@ El panel usa HTTP sin cifrado. Está pensado para la red de tu casa.
 - No lo expongas a Internet: no abras ni redirijas el puerto 80 en tu router.
 - Elige una contraseña que no uses en otro lado.
 - La contraseña no se guarda en la Pi. En `/etc/nabu-web.conf` solo queda su hash, calculado con PBKDF2-SHA256.
+- El ícono y el nombre del panel se entregan sin pedir contraseña, porque el navegador los solicita así. No contienen ningún dato del servidor.
 
 # La impresora virtual
 
@@ -852,6 +882,7 @@ Si el problema es del propio Internet Adapter o de un programa de la NABU, los l
 | `~/nabu/NABU Internet Adapter/Cache/` | Descargas de la nube |
 | `~/nabu/printer/` | PDF de la impresora virtual, sus datos originales (`.lst`) y la elección de letra y papel |
 | `~/nabu/ia-error.log` | Errores del IA |
+| `~/nabu/icon.png` | Ícono propio para el panel web (opcional) |
 | `~/nabu/backups/` | Backups |
 | `~/.cache/nabu-setup/` | Versión del IA que detectó el panel web |
 | `/usr/local/bin/nabu` | Comando de administración |
@@ -942,4 +973,4 @@ La licencia cubre solamente NABU Setup. El NABU Internet Adapter es un programa 
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: comando `nabu poweroff` y botón **Apagar la Pi** en el panel web |
 | 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` para actualizar NABU Setup |
 | 4 | 2026-10-05 | 1.3.0 | Letras acentuadas y eñe en la impresora virtual, impresión desde WordStar, elección de letra y papel, borrado y reimpresión desde el panel web, y backups en `~/nabu/backups` |
-| 5 | 2026-10-06 | 1.4.0 | Arranque del IA sin esperar a la red; novedades de nabu.ca, avisos y pantalla del IA ajustada al ancho en el panel web |
+| 5 | 2026-10-07 | 1.4.0 | Arranque del IA sin esperar a la red; en el panel web, novedades de nabu.ca, avisos, pantalla del IA ajustada al ancho, aviso de conexión perdida e ícono para el teléfono |

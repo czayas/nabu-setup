@@ -4,13 +4,15 @@
 
 NABU Setup y su manual llevan numeraciones separadas. El script usa números de versión (como 1.2.0); el manual usa números de revisión e indica a qué versión del script corresponde.
 
-## NABU Setup 1.4.0 (2026-10-06)
+## NABU Setup 1.4.0 (2026-10-07)
 
 - El Internet Adapter arranca sin esperar a que la Pi tenga red, para que la NABU pueda cargar antes. En una Raspberry Pi 3 Model A+, el servicio pasó de iniciarse a unos 31 segundos del encendido a hacerlo a unos 12. En una instalación existente, el cambio vale desde el siguiente encendido de la Pi.
 - Antes de iniciar el IA, el servicio espera hasta diez segundos a que aparezca el adaptador USB a RS-422.
 - Nueva tarjeta **Novedades** en el panel web, con las últimas publicaciones de nabu.ca. El panel las consulta por su cuenta, porque el IA, al arrancar sin red, muestra las que tenía guardadas.
 - El panel avisa cuando hay una versión nueva del Internet Adapter y cuando el IA tiene novedades o canales sin cargar. Para eso compara las novedades y la lista de canales de la nube con las copias que guarda el IA.
 - En el panel, la pantalla del IA se ajusta sola al ancho y entra completa, sin barra horizontal; al tocarla se amplía. Las líneas largas del registro continúan en el renglón siguiente.
+- El panel avisa con una franja visible cuando pierde la conexión con la Pi, deja los indicadores en gris en lugar de mostrar datos viejos y se recupera solo cuando la Pi vuelve, también después de **Apagar la Pi**. Se actualiza en el momento al volver a la pestaña y se recarga solo cuando se instala una versión nueva.
+- El panel tiene ícono y nombre propios para agregarlo a la pantalla de inicio de un teléfono. Con un archivo `~/nabu/icon.png` se usa un ícono propio.
 - Se quitó la mudanza automática de los backups de `~/backups` a `~/nabu/backups`. Quien actualice desde la 1.2.0 o una anterior puede moverlos a mano.
 
 ## NABU Setup 1.3.0 (2026-10-05)
@@ -49,7 +51,7 @@ Primera versión publicada.
 
 | Revisión | Fecha | NABU Setup | Cambios |
 |---|---|---|---|
-| 5 | 2026-10-06 | 1.4.0 | Arranque del IA sin esperar a la red; novedades, avisos y pantalla ajustada al ancho en el panel web |
+| 5 | 2026-10-07 | 1.4.0 | Arranque del IA sin esperar a la red; en el panel web, novedades, avisos, pantalla ajustada al ancho, aviso de conexión perdida e ícono para el teléfono |
 | 4 | 2026-10-05 | 1.3.0 | Acentos y eñe, impresión desde WordStar, letra y papel, borrado y reimpresión, carpeta de backups |
 | 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` |
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: `nabu poweroff` y el botón del panel |

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NABU Setup — servidor NABU minimalista para Raspberry Pi (Raspberry Pi OS Lite)
-# Versión 1.4.0 · publicada el 2026-10-06 · edición en español
+# Versión 1.4.0 · publicada el 2026-10-07 · edición en español
 #
 # Retro Informática Paraguay — https://www.youtube.com/@retroinfopy
 # Repositorio y manual de usuario: https://github.com/czayas/nabu-setup
@@ -31,7 +31,7 @@
 set -euo pipefail
 
 NABU_SETUP_VERSION="1.4.0"
-NABU_SETUP_DATE="2026-10-06"
+NABU_SETUP_DATE="2026-10-07"
 NABU_SETUP_LANG="es"
 NABU_SETUP_REPO="https://github.com/czayas/nabu-setup"
 
@@ -1271,7 +1271,8 @@ echo "==> Instalando panel web"
 sudo tee /usr/local/lib/nabu/nabu-web.py >/dev/null <<'PYEOF'
 #!/usr/bin/env python3
 """Panel web minimalista para el servidor NABU (solo biblioteca estándar)."""
-import base64, glob, hashlib, hmac, html, json, os, re, subprocess, threading, time
+import base64, glob, hashlib, hmac, html, json, os, re, struct, subprocess
+import threading, time, zlib
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -1306,6 +1307,47 @@ NO_PRINT = "Esa impresión ya no existe."
 NO_RAW = "No están los datos originales de esa impresión; no se puede rehacer."
 BAD_SETTING = "Letra o papel desconocidos."
 WHEN = "{d}/{mo}/{y} {h}:{mi}:{s}"     # fecha y hora de cada impresión en la lista
+# Nombre e ícono del panel cuando se agrega a la pantalla de inicio de un
+# teléfono. El ícono es un dibujo de 32 x 32 píxeles, un carácter por píxel. Si
+# existe ICON_FILE (un PNG cuadrado), el panel usa ese en su lugar.
+APP_NAME = "NABU"
+ICON_FILE = os.path.join(IA.get("NABU_DIR") or os.path.expanduser("~/nabu"), "icon.png")
+ICON_MAX = 2000000         # bytes; un archivo más grande se ignora
+ICON_COLORS = {"b": b"\x2b\x7d\xe9", "c": b"\x3a\x8a\xf0", "w": b"\xff\xff\xff"}
+ICON_ROWS = (
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbwwbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbwwbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbwwbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbwwbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbwwbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbwwbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+)
 BACKUPS = (os.environ.get("NABU_BACKUP_DIR") or IA.get("NABU_BACKUP_DIR")
            or os.path.expanduser("~/nabu/backups"))
 BACKUP_RE = re.compile(r"nabu-backup-[0-9-]+\.zip")
@@ -1358,6 +1400,49 @@ def check_auth(header):
     return False
 
 
+def pixel_png(rows, colors, scale):
+    """PNG de un dibujo de píxeles, ampliado `scale` veces."""
+    side = len(rows) * scale
+    raw = b"".join((b"\x00" + b"".join(colors[c] * scale for c in row)) * scale
+                   for row in rows)
+
+    def chunk(tag, data):
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data)))
+
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", side, side, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
+ICON = pixel_png(ICON_ROWS, ICON_COLORS, 16)
+
+
+def icon():
+    """Devuelve (PNG, propio): el de ICON_FILE si existe y es un PNG; si no,
+    el del panel."""
+    try:
+        if os.path.getsize(ICON_FILE) <= ICON_MAX:
+            with open(ICON_FILE, "rb") as f:
+                data = f.read()
+            if data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
+                return data, True
+    except OSError:
+        pass
+    return ICON, False
+
+
+def manifest():
+    """Descripción del panel como aplicación, para el navegador del teléfono."""
+    data, custom = icon()
+    entry = {"src": "/icon.png", "type": "image/png", "purpose": "any",
+             "sizes": "%dx%d" % struct.unpack(">II", data[16:24])}
+    icons = [entry] if custom else [entry, dict(entry, purpose="maskable")]
+    return {"name": REALM, "short_name": APP_NAME, "start_url": "/", "scope": "/",
+            "display": "standalone", "background_color": "#001233",
+            "theme_color": "#001233", "icons": icons}
+
+
 def run(cmd, timeout=20):
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
@@ -1385,6 +1470,7 @@ def status():
         "temp": temp,
         "throttled": throttled,
         "update": UPD["state"],
+        "build": BUILD,
     }
 
 
@@ -1575,7 +1661,9 @@ class Handler(BaseHTTPRequestHandler):
     def send(self, code, body, ctype="application/json"):
         b = body.encode() if isinstance(body, str) else body
         self.send_response(code)
-        self.send_header("Content-Type", ctype + "; charset=utf-8")
+        if not ctype.startswith("image/"):
+            ctype += "; charset=utf-8"
+        self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(b)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -1605,9 +1693,14 @@ class Handler(BaseHTTPRequestHandler):
         return False
 
     def do_GET(self):
+        p = self.path.split("?")[0]
+        # el ícono y la descripción de la aplicación se entregan sin contraseña
+        if p == "/icon.png":
+            return self.send(200, icon()[0], "image/png")
+        if p == "/manifest.json":
+            return self.send(200, json.dumps(manifest()), "application/manifest+json")
         if not self.authorized():
             return
-        p = self.path.split("?")[0]
         if p == "/":
             self.send(200, PAGE, "text/html")
         elif p == "/api/status":
@@ -1711,6 +1804,11 @@ PAGE = r"""<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#001233">
+<meta name="application-name" content="NABU">
+<meta name="apple-mobile-web-app-title" content="NABU">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
 <title>Servidor NABU</title>
 <style>
 :root{--bg:#001233;--card:#0b1f4a;--line:#1d3570;--fg:#e8eefc;--dim:#93a4cc;
@@ -1749,6 +1847,12 @@ pre.wrap{white-space:pre-wrap;overflow-wrap:anywhere}
 .vhint{color:var(--dim);font-size:.82rem;margin-top:6px}
 .vhint:empty{display:none}
 #msg{min-height:1.4em;color:var(--dim);font-size:.9rem;margin-top:10px}
+#lost{display:none;position:sticky;top:8px;z-index:5;margin:0 0 14px;padding:12px 14px;
+border-radius:12px;background:#4a1620;border:1px solid var(--bad);color:#ffe9e9}
+#lost b{display:block}
+#lost small{display:block;color:#ffb9b9;font-size:.85rem;margin-top:2px}
+body.lost #lost{display:block}
+body.lost .card{opacity:.45;pointer-events:none}
 .notes{list-style:none;margin:10px 0 0;padding:0;font-size:.9rem}
 .notes:empty{display:none}
 .notes li{padding:3px 0 3px 16px;position:relative}
@@ -1785,6 +1889,7 @@ footer{color:var(--dim);font-size:.78rem;text-align:center;padding:2px 0 14px}
 footer a{color:inherit}
 </style></head><body><main>
 <h1>Servidor <span>NABU</span></h1>
+<div id="lost"><b id="lost-t" role="alert"></b><small id="lost-s"></small></div>
 
 <div class="card"><div class="grid">
 <div class="item" id="s-svc"><small>Internet Adapter</small><b><span class="dot"></span><span>…</span></b></div>
@@ -1845,14 +1950,17 @@ const T={
   stop:'Detener', start:'Iniciar',
   restarting:'Reiniciando…', stopping:'Deteniendo…', starting:'Iniciando…',
   confirmStop:'¿Detener el Internet Adapter?',
-  done:'Listo.', error:'Error: ', noConn:'Error de conexión.', noPi:'Sin conexión con la Pi.',
+  done:'Listo.', error:'Error: ', noConn:'Error de conexión.',
+  lost:'Sin conexión con la Pi', lostTitle:'Sin conexión',
+  lostFor:t=>'Último contacto: hace '+t+'. Reintentando…',
   updating:'Actualizando… puede tardar unos minutos.',
   confirmUpdate:'¿Descargar e instalar la última versión del Internet Adapter? Se hace un backup antes.',
   updateOk:'Actualización completa.', updateFail:'La actualización falló (ver Registro).',
   backingUp:'Creando backup…', backupOk:'Backup creado: ', downloading:'. Descargando…',
   backupFail:'Error al crear el backup: ',
   confirmOff:'¿Apagar la Pi? Para volver a encenderla tendrás que cortar y devolver la corriente.',
-  poweringOff:'Apagando la Pi… Espera a que el LED verde deje de parpadear antes de cortar la corriente.',
+  halting:'Apagando la Pi…',
+  haltHint:'Espera a que el LED verde deje de parpadear antes de cortar la corriente.',
   empty:'(vacío)', loadFail:'No se pudo cargar.',
   tapZoom:'Toca la pantalla para ampliarla.', tapFit:'Toca la pantalla para verla completa.',
   printerOff:'La impresora virtual no está activa.',
@@ -1867,27 +1975,55 @@ const T={
   noNews:'No se pudieron consultar las novedades. La Pi necesita conexión a Internet.',
   emptyNews:'No hay novedades publicadas.'
 };
-let view='screen', active='', printer=true, printsKey='', newsKey='', off=false, zoom=false;
+const BUILD='@@BUILD@@', TITLE=document.title;
+let view='screen', active='', printer=true, printsKey='', newsKey='', zoom=false;
+// lost: sin conexión con la Pi; quiet: no consultar hasta ese momento (apagado en curso)
+let lost=false, fails=0, lastOk=Date.now(), quiet=0;
 const $=id=>document.getElementById(id);
-async function api(p,opt){const r=await fetch(p,opt);return r.json();}
+// ms: tiempo límite de la consulta; sin él, espera lo que haga falta
+async function api(p,opt,ms){
+  const c=new AbortController(), t=ms?setTimeout(()=>c.abort(),ms):0;
+  try{const r=await fetch(p,Object.assign({signal:c.signal},opt)); return await r.json();}
+  finally{clearTimeout(t);}
+}
 function set(id,cls,txt){const e=$(id);e.className='item '+cls;e.querySelector('b span:last-child').textContent=txt;}
 function msg(t){$('msg').textContent=t||'';}
 function post(a,extra){return api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({action:a},extra||{}))});}
+function ago(s){return s<90?s+' s':s<5400?Math.round(s/60)+' min':Math.round(s/3600)+' h';}
+function tick(){
+  if(!lost) return;
+  const halt=Date.now()<quiet, t=halt?T.halting:T.lost;
+  if($('lost-t').textContent!==t) $('lost-t').textContent=t;
+  $('lost-s').textContent=halt?T.haltHint:T.lostFor(ago(Math.round((Date.now()-lastOk)/1000)));
+}
+function setLost(v){
+  if(v===lost) return;
+  lost=v;
+  document.body.classList.toggle('lost',v);
+  document.title=(v?'⚠ '+T.lostTitle+' · ':'')+TITLE;
+  for(const c of document.querySelectorAll('.card')) c.inert=v;
+  if(v){ for(const id of ['s-svc','s-tty','s-temp','s-pwr']) set(id,'','—'); msg(''); tick(); }
+}
 async function refresh(){
-  if(off) return;
-  try{
-    const s=await api('/api/status'); active=s.active; printer=s.printer;
-    set('s-svc', s.active==='active'?'ok':(s.active==='activating'?'warn':'bad'), T[s.active]||s.active);
-    set('s-tty', s.ttys.length?'ok':'bad', s.ttys.length?s.ttys.join(', ').replace(/\/dev\//g,''):T.notDetected);
-    if(s.temp){const t=parseFloat(s.temp);set('s-temp',t<70?'ok':(t<80?'warn':'bad'),s.temp.replace("'C"," °C"));}
-    else set('s-temp','','—');
-    if(s.throttled) set('s-pwr', s.throttled==='0x0'?'ok':'bad', s.throttled==='0x0'?T.powerOk:T.powerBad+' ('+s.throttled+')');
-    else set('s-pwr','','—');
-    $('b-toggle').textContent = s.active==='active'?T.stop:T.start;
-    $('b-upd').disabled = s.update==='running';
-    if(s.update==='running') msg(T.updating);
-  }catch(e){msg(T.noPi);}
+  if(Date.now()<quiet) return;
+  let s;
+  try{ s=await api('/api/status',null,5000); }
+  catch(e){ if(++fails>=2) setLost(true); else setTimeout(refresh,2500); return; }
+  if(s.build&&s.build!==BUILD){ location.reload(); return; }
+  const back=lost;
+  fails=0; lastOk=Date.now(); setLost(false);
+  active=s.active; printer=s.printer;
+  set('s-svc', s.active==='active'?'ok':(s.active==='activating'?'warn':'bad'), T[s.active]||s.active);
+  set('s-tty', s.ttys.length?'ok':'bad', s.ttys.length?s.ttys.join(', ').replace(/\/dev\//g,''):T.notDetected);
+  if(s.temp){const t=parseFloat(s.temp);set('s-temp',t<70?'ok':(t<80?'warn':'bad'),s.temp.replace("'C"," °C"));}
+  else set('s-temp','','—');
+  if(s.throttled) set('s-pwr', s.throttled==='0x0'?'ok':'bad', s.throttled==='0x0'?T.powerOk:T.powerBad+' ('+s.throttled+')');
+  else set('s-pwr','','—');
+  $('b-toggle').textContent = s.active==='active'?T.stop:T.start;
+  $('b-upd').disabled = s.update==='running';
+  if(s.update==='running') msg(T.updating);
   loadPrints();
+  if(back){ loadView(); loadNews(); }
 }
 async function act(a,t){
   msg(t);
@@ -1910,7 +2046,8 @@ async function update(){
   await post('update');
   $('b-upd').disabled=true; msg(T.updating);
   const poll=setInterval(async()=>{
-    const u=await api('/api/update');
+    let u;
+    try{ u=await api('/api/update',null,8000); }catch(e){ return; }
     if(u.state!=='running'){clearInterval(poll);
       msg(u.state==='ok'?T.updateOk:T.updateFail);
       $('view').textContent=u.out; fit(); refresh(); setTimeout(loadNews,20000);}
@@ -1918,13 +2055,13 @@ async function update(){
 }
 async function poweroff(){
   if(!confirm(T.confirmOff))return;
-  try{const r=await post('poweroff'); if(r.ok){off=true; msg(T.poweringOff);} else msg(T.error+r.out);}
+  try{const r=await post('poweroff'); if(r.ok){quiet=Date.now()+30000; setLost(true);} else msg(T.error+r.out);}
   catch(e){msg(T.noConn);}
 }
 function tab(v){view=v;$('t-screen').classList.toggle('on',v==='screen');$('t-log').classList.toggle('on',v==='log');loadView();}
 async function loadView(){
   const v=view; let text;
-  try{const r=await api(v==='screen'?'/api/screen':'/api/log'); text=r.text||T.empty;}
+  try{const r=await api(v==='screen'?'/api/screen':'/api/log',null,10000); text=r.text||T.empty;}
   catch(e){text=T.loadFail;}
   if(v!==view) return;
   $('view').textContent=text; fit();
@@ -1947,7 +2084,7 @@ $('view').onclick=()=>{ if(view!=='screen'||String(getSelection())) return; zoom
 addEventListener('resize',fit);
 async function loadPrints(){
   let r;
-  try{ r=await api('/api/prints'); }catch(e){ return; }
+  try{ r=await api('/api/prints',null,10000); }catch(e){ return; }
   const key=JSON.stringify(r)+printer;
   if(key===printsKey) return;
   printsKey=key;
@@ -1994,9 +2131,9 @@ async function setOpt(){
   printsKey=''; loadPrints();
 }
 async function loadNews(){
-  if(off) return;
+  if(lost) return;
   let r;
-  try{ r=await api('/api/news'); }catch(e){ return; }
+  try{ r=await api('/api/news',null,45000); }catch(e){ return; }
   const key=JSON.stringify(r);
   if(key===newsKey) return;
   newsKey=key;
@@ -2019,7 +2156,10 @@ async function loadNews(){
 pnote(); refresh(); loadView(); loadNews();
 setInterval(loadNews,600000);
 setInterval(refresh,10000);
-setInterval(()=>{ if(view==='screen'&&!off) loadView(); },5000);
+setInterval(tick,1000);
+setInterval(()=>{ if(view==='screen'&&!lost) loadView(); },5000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ refresh(); if(view==='screen'&&!lost) loadView(); } });
+addEventListener('online',refresh);
 </script></body></html>"""
 
 
@@ -2036,6 +2176,9 @@ def footer():
 
 
 PAGE = PAGE.replace("@@FOOTER@@", footer())
+# Identifica esta versión de la página: si cambia, los paneles abiertos se recargan
+BUILD = hashlib.sha256(PAGE.encode()).hexdigest()[:12]
+PAGE = PAGE.replace("@@BUILD@@", BUILD)
 
 
 if __name__ == "__main__":

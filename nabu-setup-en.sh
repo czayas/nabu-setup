@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NABU Setup — a minimal NABU server for Raspberry Pi (Raspberry Pi OS Lite)
-# Version 1.4.0 · released on 2026-10-06 · English edition
+# Version 1.4.0 · released on 2026-10-07 · English edition
 #
 # Retro Informática Paraguay — https://www.youtube.com/@retroinfopy
 # Repository and user manual: https://github.com/czayas/nabu-setup
@@ -31,7 +31,7 @@
 set -euo pipefail
 
 NABU_SETUP_VERSION="1.4.0"
-NABU_SETUP_DATE="2026-10-06"
+NABU_SETUP_DATE="2026-10-07"
 NABU_SETUP_LANG="en"
 NABU_SETUP_REPO="https://github.com/czayas/nabu-setup"
 
@@ -1271,7 +1271,8 @@ echo "==> Installing the web panel"
 sudo tee /usr/local/lib/nabu/nabu-web.py >/dev/null <<'PYEOF'
 #!/usr/bin/env python3
 """Minimal web panel for the NABU server (standard library only)."""
-import base64, glob, hashlib, hmac, html, json, os, re, subprocess, threading, time
+import base64, glob, hashlib, hmac, html, json, os, re, struct, subprocess
+import threading, time, zlib
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -1306,6 +1307,47 @@ NO_PRINT = "That printout no longer exists."
 NO_RAW = "The original data of that printout is missing; it cannot be redone."
 BAD_SETTING = "Unknown typeface or paper."
 WHEN = "{mo}/{d}/{y} {h}:{mi}:{s}"     # date and time of each printout in the list
+# Name and icon of the panel when it is added to a phone's home screen. The
+# icon is a 32 x 32 pixel drawing, one character per pixel. If ICON_FILE (a
+# square PNG) exists, the panel uses that one instead.
+APP_NAME = "NABU"
+ICON_FILE = os.path.join(IA.get("NABU_DIR") or os.path.expanduser("~/nabu"), "icon.png")
+ICON_MAX = 2000000         # bytes; a larger file is ignored
+ICON_COLORS = {"b": b"\x2b\x7d\xe9", "c": b"\x3a\x8a\xf0", "w": b"\xff\xff\xff"}
+ICON_ROWS = (
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbwwbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbwwbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbwwbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbwwbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbwwbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbwwbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+)
 BACKUPS = (os.environ.get("NABU_BACKUP_DIR") or IA.get("NABU_BACKUP_DIR")
            or os.path.expanduser("~/nabu/backups"))
 BACKUP_RE = re.compile(r"nabu-backup-[0-9-]+\.zip")
@@ -1358,6 +1400,49 @@ def check_auth(header):
     return False
 
 
+def pixel_png(rows, colors, scale):
+    """PNG of a pixel drawing, enlarged `scale` times."""
+    side = len(rows) * scale
+    raw = b"".join((b"\x00" + b"".join(colors[c] * scale for c in row)) * scale
+                   for row in rows)
+
+    def chunk(tag, data):
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data)))
+
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", side, side, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
+ICON = pixel_png(ICON_ROWS, ICON_COLORS, 16)
+
+
+def icon():
+    """Returns (PNG, custom): the one in ICON_FILE if it exists and is a PNG;
+    otherwise, the panel's own."""
+    try:
+        if os.path.getsize(ICON_FILE) <= ICON_MAX:
+            with open(ICON_FILE, "rb") as f:
+                data = f.read()
+            if data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
+                return data, True
+    except OSError:
+        pass
+    return ICON, False
+
+
+def manifest():
+    """Description of the panel as an app, for the phone's browser."""
+    data, custom = icon()
+    entry = {"src": "/icon.png", "type": "image/png", "purpose": "any",
+             "sizes": "%dx%d" % struct.unpack(">II", data[16:24])}
+    icons = [entry] if custom else [entry, dict(entry, purpose="maskable")]
+    return {"name": REALM, "short_name": APP_NAME, "start_url": "/", "scope": "/",
+            "display": "standalone", "background_color": "#001233",
+            "theme_color": "#001233", "icons": icons}
+
+
 def run(cmd, timeout=20):
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
@@ -1385,6 +1470,7 @@ def status():
         "temp": temp,
         "throttled": throttled,
         "update": UPD["state"],
+        "build": BUILD,
     }
 
 
@@ -1575,7 +1661,9 @@ class Handler(BaseHTTPRequestHandler):
     def send(self, code, body, ctype="application/json"):
         b = body.encode() if isinstance(body, str) else body
         self.send_response(code)
-        self.send_header("Content-Type", ctype + "; charset=utf-8")
+        if not ctype.startswith("image/"):
+            ctype += "; charset=utf-8"
+        self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(b)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -1605,9 +1693,14 @@ class Handler(BaseHTTPRequestHandler):
         return False
 
     def do_GET(self):
+        p = self.path.split("?")[0]
+        # the icon and the app description are served without a password
+        if p == "/icon.png":
+            return self.send(200, icon()[0], "image/png")
+        if p == "/manifest.json":
+            return self.send(200, json.dumps(manifest()), "application/manifest+json")
         if not self.authorized():
             return
-        p = self.path.split("?")[0]
         if p == "/":
             self.send(200, PAGE, "text/html")
         elif p == "/api/status":
@@ -1711,6 +1804,11 @@ PAGE = r"""<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#001233">
+<meta name="application-name" content="NABU">
+<meta name="apple-mobile-web-app-title" content="NABU">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
 <title>NABU Server</title>
 <style>
 :root{--bg:#001233;--card:#0b1f4a;--line:#1d3570;--fg:#e8eefc;--dim:#93a4cc;
@@ -1749,6 +1847,12 @@ pre.wrap{white-space:pre-wrap;overflow-wrap:anywhere}
 .vhint{color:var(--dim);font-size:.82rem;margin-top:6px}
 .vhint:empty{display:none}
 #msg{min-height:1.4em;color:var(--dim);font-size:.9rem;margin-top:10px}
+#lost{display:none;position:sticky;top:8px;z-index:5;margin:0 0 14px;padding:12px 14px;
+border-radius:12px;background:#4a1620;border:1px solid var(--bad);color:#ffe9e9}
+#lost b{display:block}
+#lost small{display:block;color:#ffb9b9;font-size:.85rem;margin-top:2px}
+body.lost #lost{display:block}
+body.lost .card{opacity:.45;pointer-events:none}
 .notes{list-style:none;margin:10px 0 0;padding:0;font-size:.9rem}
 .notes:empty{display:none}
 .notes li{padding:3px 0 3px 16px;position:relative}
@@ -1785,6 +1889,7 @@ footer{color:var(--dim);font-size:.78rem;text-align:center;padding:2px 0 14px}
 footer a{color:inherit}
 </style></head><body><main>
 <h1><span>NABU</span> Server</h1>
+<div id="lost"><b id="lost-t" role="alert"></b><small id="lost-s"></small></div>
 
 <div class="card"><div class="grid">
 <div class="item" id="s-svc"><small>Internet Adapter</small><b><span class="dot"></span><span>…</span></b></div>
@@ -1845,14 +1950,17 @@ const T={
   stop:'Stop', start:'Start',
   restarting:'Restarting…', stopping:'Stopping…', starting:'Starting…',
   confirmStop:'Stop the Internet Adapter?',
-  done:'Done.', error:'Error: ', noConn:'Connection error.', noPi:'Cannot reach the Pi.',
+  done:'Done.', error:'Error: ', noConn:'Connection error.',
+  lost:'Cannot reach the Pi', lostTitle:'No connection',
+  lostFor:t=>'Last contact: '+t+' ago. Retrying…',
   updating:'Updating… this may take a few minutes.',
   confirmUpdate:'Download and install the latest Internet Adapter? A backup is made first.',
   updateOk:'Update complete.', updateFail:'The update failed (see Log).',
   backingUp:'Creating backup…', backupOk:'Backup created: ', downloading:'. Downloading…',
   backupFail:'Could not create the backup: ',
   confirmOff:'Shut down the Pi? To turn it back on you will have to cut the power and restore it.',
-  poweringOff:'Shutting down the Pi… Wait until the green LED stops blinking before cutting the power.',
+  halting:'Shutting down the Pi…',
+  haltHint:'Wait until the green LED stops blinking before cutting the power.',
   empty:'(empty)', loadFail:'Could not load.',
   tapZoom:'Tap the screen to enlarge it.', tapFit:'Tap the screen to see all of it.',
   printerOff:'The virtual printer is not running.',
@@ -1867,27 +1975,55 @@ const T={
   noNews:'Could not get the news. The Pi needs an Internet connection.',
   emptyNews:'No news published.'
 };
-let view='screen', active='', printer=true, printsKey='', newsKey='', off=false, zoom=false;
+const BUILD='@@BUILD@@', TITLE=document.title;
+let view='screen', active='', printer=true, printsKey='', newsKey='', zoom=false;
+// lost: cannot reach the Pi; quiet: do not poll until then (shutdown in progress)
+let lost=false, fails=0, lastOk=Date.now(), quiet=0;
 const $=id=>document.getElementById(id);
-async function api(p,opt){const r=await fetch(p,opt);return r.json();}
+// ms: time limit for the request; without it, waits as long as needed
+async function api(p,opt,ms){
+  const c=new AbortController(), t=ms?setTimeout(()=>c.abort(),ms):0;
+  try{const r=await fetch(p,Object.assign({signal:c.signal},opt)); return await r.json();}
+  finally{clearTimeout(t);}
+}
 function set(id,cls,txt){const e=$(id);e.className='item '+cls;e.querySelector('b span:last-child').textContent=txt;}
 function msg(t){$('msg').textContent=t||'';}
 function post(a,extra){return api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({action:a},extra||{}))});}
+function ago(s){return s<90?s+' s':s<5400?Math.round(s/60)+' min':Math.round(s/3600)+' h';}
+function tick(){
+  if(!lost) return;
+  const halt=Date.now()<quiet, t=halt?T.halting:T.lost;
+  if($('lost-t').textContent!==t) $('lost-t').textContent=t;
+  $('lost-s').textContent=halt?T.haltHint:T.lostFor(ago(Math.round((Date.now()-lastOk)/1000)));
+}
+function setLost(v){
+  if(v===lost) return;
+  lost=v;
+  document.body.classList.toggle('lost',v);
+  document.title=(v?'⚠ '+T.lostTitle+' · ':'')+TITLE;
+  for(const c of document.querySelectorAll('.card')) c.inert=v;
+  if(v){ for(const id of ['s-svc','s-tty','s-temp','s-pwr']) set(id,'','—'); msg(''); tick(); }
+}
 async function refresh(){
-  if(off) return;
-  try{
-    const s=await api('/api/status'); active=s.active; printer=s.printer;
-    set('s-svc', s.active==='active'?'ok':(s.active==='activating'?'warn':'bad'), T[s.active]||s.active);
-    set('s-tty', s.ttys.length?'ok':'bad', s.ttys.length?s.ttys.join(', ').replace(/\/dev\//g,''):T.notDetected);
-    if(s.temp){const t=parseFloat(s.temp);set('s-temp',t<70?'ok':(t<80?'warn':'bad'),s.temp.replace("'C"," °C"));}
-    else set('s-temp','','—');
-    if(s.throttled) set('s-pwr', s.throttled==='0x0'?'ok':'bad', s.throttled==='0x0'?T.powerOk:T.powerBad+' ('+s.throttled+')');
-    else set('s-pwr','','—');
-    $('b-toggle').textContent = s.active==='active'?T.stop:T.start;
-    $('b-upd').disabled = s.update==='running';
-    if(s.update==='running') msg(T.updating);
-  }catch(e){msg(T.noPi);}
+  if(Date.now()<quiet) return;
+  let s;
+  try{ s=await api('/api/status',null,5000); }
+  catch(e){ if(++fails>=2) setLost(true); else setTimeout(refresh,2500); return; }
+  if(s.build&&s.build!==BUILD){ location.reload(); return; }
+  const back=lost;
+  fails=0; lastOk=Date.now(); setLost(false);
+  active=s.active; printer=s.printer;
+  set('s-svc', s.active==='active'?'ok':(s.active==='activating'?'warn':'bad'), T[s.active]||s.active);
+  set('s-tty', s.ttys.length?'ok':'bad', s.ttys.length?s.ttys.join(', ').replace(/\/dev\//g,''):T.notDetected);
+  if(s.temp){const t=parseFloat(s.temp);set('s-temp',t<70?'ok':(t<80?'warn':'bad'),s.temp.replace("'C"," °C"));}
+  else set('s-temp','','—');
+  if(s.throttled) set('s-pwr', s.throttled==='0x0'?'ok':'bad', s.throttled==='0x0'?T.powerOk:T.powerBad+' ('+s.throttled+')');
+  else set('s-pwr','','—');
+  $('b-toggle').textContent = s.active==='active'?T.stop:T.start;
+  $('b-upd').disabled = s.update==='running';
+  if(s.update==='running') msg(T.updating);
   loadPrints();
+  if(back){ loadView(); loadNews(); }
 }
 async function act(a,t){
   msg(t);
@@ -1910,7 +2046,8 @@ async function update(){
   await post('update');
   $('b-upd').disabled=true; msg(T.updating);
   const poll=setInterval(async()=>{
-    const u=await api('/api/update');
+    let u;
+    try{ u=await api('/api/update',null,8000); }catch(e){ return; }
     if(u.state!=='running'){clearInterval(poll);
       msg(u.state==='ok'?T.updateOk:T.updateFail);
       $('view').textContent=u.out; fit(); refresh(); setTimeout(loadNews,20000);}
@@ -1918,13 +2055,13 @@ async function update(){
 }
 async function poweroff(){
   if(!confirm(T.confirmOff))return;
-  try{const r=await post('poweroff'); if(r.ok){off=true; msg(T.poweringOff);} else msg(T.error+r.out);}
+  try{const r=await post('poweroff'); if(r.ok){quiet=Date.now()+30000; setLost(true);} else msg(T.error+r.out);}
   catch(e){msg(T.noConn);}
 }
 function tab(v){view=v;$('t-screen').classList.toggle('on',v==='screen');$('t-log').classList.toggle('on',v==='log');loadView();}
 async function loadView(){
   const v=view; let text;
-  try{const r=await api(v==='screen'?'/api/screen':'/api/log'); text=r.text||T.empty;}
+  try{const r=await api(v==='screen'?'/api/screen':'/api/log',null,10000); text=r.text||T.empty;}
   catch(e){text=T.loadFail;}
   if(v!==view) return;
   $('view').textContent=text; fit();
@@ -1947,7 +2084,7 @@ $('view').onclick=()=>{ if(view!=='screen'||String(getSelection())) return; zoom
 addEventListener('resize',fit);
 async function loadPrints(){
   let r;
-  try{ r=await api('/api/prints'); }catch(e){ return; }
+  try{ r=await api('/api/prints',null,10000); }catch(e){ return; }
   const key=JSON.stringify(r)+printer;
   if(key===printsKey) return;
   printsKey=key;
@@ -1994,9 +2131,9 @@ async function setOpt(){
   printsKey=''; loadPrints();
 }
 async function loadNews(){
-  if(off) return;
+  if(lost) return;
   let r;
-  try{ r=await api('/api/news'); }catch(e){ return; }
+  try{ r=await api('/api/news',null,45000); }catch(e){ return; }
   const key=JSON.stringify(r);
   if(key===newsKey) return;
   newsKey=key;
@@ -2019,7 +2156,10 @@ async function loadNews(){
 pnote(); refresh(); loadView(); loadNews();
 setInterval(loadNews,600000);
 setInterval(refresh,10000);
-setInterval(()=>{ if(view==='screen'&&!off) loadView(); },5000);
+setInterval(tick,1000);
+setInterval(()=>{ if(view==='screen'&&!lost) loadView(); },5000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ refresh(); if(view==='screen'&&!lost) loadView(); } });
+addEventListener('online',refresh);
 </script></body></html>"""
 
 
@@ -2036,6 +2176,9 @@ def footer():
 
 
 PAGE = PAGE.replace("@@FOOTER@@", footer())
+# Identifies this version of the page: if it changes, open panels reload
+BUILD = hashlib.sha256(PAGE.encode()).hexdigest()[:12]
+PAGE = PAGE.replace("@@BUILD@@", BUILD)
 
 
 if __name__ == "__main__":
