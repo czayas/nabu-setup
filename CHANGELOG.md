@@ -4,6 +4,14 @@
 
 NABU Setup and its manual are versioned separately. The script uses version numbers (such as 1.2.0); the manual uses revision numbers and states which script version it covers.
 
+## NABU Setup 1.4.0 (2026-10-06)
+
+- The Internet Adapter starts without waiting for the Pi to be online, so the NABU can load sooner. On a Raspberry Pi 3 Model A+, the service went from starting about 31 seconds after power-on to about 12. On an existing installation, the change applies from the next time the Pi is powered on.
+- Before starting the IA, the service waits up to ten seconds for the USB to RS-422 adapter to show up.
+- New **News** card on the web panel, with the latest posts from nabu.ca. The panel gets them on its own, because the IA, starting without a network, shows the ones it had saved.
+- The panel tells you when a newer Internet Adapter is available and when the IA has not loaded the latest news.
+- Removed the automatic move of backups from `~/backups` to `~/nabu/backups`. Anyone updating from 1.2.0 or earlier can move them by hand.
+
 ## NABU Setup 1.3.0 (2026-10-05)
 
 - The virtual printer makes accented letters: an accent printed over a letter, the way WordStar does it with `^PH`, is drawn as a single letter (á, é, ñ, ü, ç, and the rest of Latin-1) and is stored that way in the text of the PDF.
@@ -40,6 +48,7 @@ First public release.
 
 | Revision | Date | NABU Setup | Changes |
 |---|---|---|---|
+| 5 | 2026-10-06 | 1.4.0 | IA startup without waiting for the network, news and notices on the web panel |
 | 4 | 2026-10-05 | 1.3.0 | Accented letters, printing from WordStar, typeface and paper, deleting and redoing printouts, backups folder |
 | 3 | 2026-10-04 | 1.2.0 | `nabu setup` command |
 | 2 | 2026-10-04 | 1.1.0 | Safe shutdown: `nabu poweroff` and the panel button |

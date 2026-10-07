@@ -2,7 +2,7 @@
 -- Width of each figure in the PDF, by file name.
 local widths = {
   ["architecture"] = "100%",
-  ["panel"] = "48%",
+  ["panel"] = "40%",
   ["printout"] = "100%",
   ["typefaces"] = "100%",
 }

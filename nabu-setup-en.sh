@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NABU Setup — a minimal NABU server for Raspberry Pi (Raspberry Pi OS Lite)
-# Version 1.3.0 · released on 2026-10-05 · English edition
+# Version 1.4.0 · released on 2026-10-06 · English edition
 #
 # Retro Informática Paraguay — https://www.youtube.com/@retroinfopy
 # Repository and user manual: https://github.com/czayas/nabu-setup
@@ -16,6 +16,7 @@
 #     when the Pi boots, and you can open its interface over SSH
 #   - Installs the `nabu` administration command
 #   - Installs a lightweight, password-protected web panel (port 80: http://nabu.local)
+#     that also shows the news from the NABU cloud
 #   - Installs the virtual printer: whatever the NABU sends to LST: from Cloud CP/M
 #     is saved as a PDF in ~/nabu/printer and shows up on the panel
 #
@@ -29,8 +30,8 @@
 # with the author of the NABU Internet Adapter.
 set -euo pipefail
 
-NABU_SETUP_VERSION="1.3.0"
-NABU_SETUP_DATE="2026-10-05"
+NABU_SETUP_VERSION="1.4.0"
+NABU_SETUP_DATE="2026-10-06"
 NABU_SETUP_LANG="en"
 NABU_SETUP_REPO="https://github.com/czayas/nabu-setup"
 
@@ -177,8 +178,8 @@ echo "==> Creating the nabu-ia systemd service"
 sudo tee /etc/systemd/system/nabu-ia.service >/dev/null <<EOF
 [Unit]
 Description=NABU Internet Adapter (in a tmux session)
-After=network-online.target
-Wants=network-online.target
+# It does not wait for the network: the NABU can load as soon as the Pi boots.
+# If the IA cannot reach the cloud at startup, it uses what it already has.
 # If the IA fails 10 times within 5 minutes, systemd stops retrying
 StartLimitIntervalSec=300
 StartLimitBurst=10
@@ -188,6 +189,8 @@ Type=forking
 User=$U
 WorkingDirectory=$BINDIR
 Environment=TERM=xterm-256color
+# Waits up to 10 seconds for the USB to RS-422 adapter to show up
+ExecStartPre=-/usr/bin/timeout 10 /bin/sh -c 'until ls /dev/ttyUSB* >/dev/null 2>&1; do sleep 0.5; done'
 # The IA's errors (stderr) go to ia-error.log without disturbing the screen
 ExecStart=/usr/bin/tmux -L nabu -f $DIR/tmux.conf new-session -d -s nabu -x 100 -y 35 "exec $BINPATH 2>>$DIR/ia-error.log"
 ExecStop=-/usr/bin/tmux -L nabu kill-server
@@ -417,12 +420,6 @@ if __name__ == "__main__":
 PYEOF
 sudo chmod 755 /usr/local/lib/nabu/nabu-backup.py
 mkdir -p "$BACKUP_DIR"
-# Up to release 1.2.0 backups were saved in ~/backups: they are moved
-if compgen -G "$HOME/backups/nabu-backup-*.zip" >/dev/null; then
-  echo "==> Moving the backups from ~/backups to ${BACKUP_DIR/#$HOME/\~}"
-  mv -n "$HOME"/backups/nabu-backup-*.zip "$BACKUP_DIR"/
-  rmdir "$HOME/backups" 2>/dev/null || true
-fi
 
 echo "==> Installing the virtual printer (LST.TXT to PDF)"
 sudo tee /usr/local/lib/nabu/nabu-print.py >/dev/null <<'PYEOF'
@@ -1274,7 +1271,8 @@ echo "==> Installing the web panel"
 sudo tee /usr/local/lib/nabu/nabu-web.py >/dev/null <<'PYEOF'
 #!/usr/bin/env python3
 """Minimal web panel for the NABU server (standard library only)."""
-import base64, glob, hashlib, hmac, html, json, os, re, subprocess, threading
+import base64, glob, hashlib, hmac, html, json, os, re, subprocess, threading, time
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 CONF = os.environ.get("NABU_WEB_CONF", "/etc/nabu-web.conf")
@@ -1322,6 +1320,21 @@ FONTS = ("matrix", "serif", "sans")
 PAPERS = ("fanfold", "plain")
 SETTINGS = os.path.join(PRINTS, ".settings.json")
 PRINT_PY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nabu-print.py")
+# News from the NABU cloud. The panel gets it on its own, because the Internet
+# Adapter starts without waiting for the network and shows the news it had saved.
+NEWS_URL = os.environ.get("NABU_NEWS_URL", "https://cloud.nabu.ca/News.json")
+VERSION_URL = os.environ.get("NABU_VERSION_URL", "https://cloud.nabu.ca/Version.txt")
+NEWS_DATE = "{mo}/{d}/{y}"   # date of each news item in the list
+NEWS_MAX = 5               # news items shown on the panel (the newest ones)
+NEWS_TTL = 1800            # seconds a cloud query stays valid
+NEWS_RETRY = 300           # wait before asking again when the cloud did not answer
+NEWS = {"until": 0.0, "data": None}
+NEWS_LOCK = threading.Lock()
+IA_LOCK = threading.Lock()
+IA_BIN = IA.get("NABU_BIN", "")
+IA_VERSION_FILE = os.environ.get("NABU_IA_VERSION_FILE") or os.path.expanduser(
+    "~/.cache/nabu-setup/ia-version.json")
+VERSION_RE = re.compile(r"\d{4}\.\d\d\.\d\d\.\d\d")
 
 
 def check_auth(header):
@@ -1418,6 +1431,106 @@ def do_update():
     UPD.update(state="ok" if rc == 0 else "error", out=out[-4000:])
 
 
+def fetch(url, limit=2000000):
+    """Downloads a file from the cloud and returns its content."""
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "NABU-Setup/%s" % IA.get("NABU_SETUP_VERSION", "0")})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return r.read(limit)
+
+
+def version_key(version):
+    return tuple(int(n) for n in version.split("."))
+
+
+def ia_installed():
+    """Installed Internet Adapter version, or "" if it could not be found out.
+
+    The program is asked (--version) only once for each installed file; the
+    answer is saved, also when it could not be found out."""
+    try:
+        st = os.stat(IA_BIN)
+    except OSError:
+        return ""
+    stamp = [int(st.st_mtime), st.st_size]
+    with IA_LOCK:
+        try:
+            with open(IA_VERSION_FILE) as f:
+                saved = json.load(f)
+            if saved.get("stamp") == stamp:
+                return str(saved.get("version", ""))
+        except (OSError, ValueError, AttributeError):
+            pass
+        try:
+            r = subprocess.run([IA_BIN, "--version"], capture_output=True, text=True,
+                               timeout=20, stdin=subprocess.DEVNULL,
+                               cwd=os.path.dirname(IA_BIN))
+            m = VERSION_RE.search(r.stdout + r.stderr)
+        except Exception:
+            m = None
+        version = m.group(0) if m else ""
+        try:
+            os.makedirs(os.path.dirname(IA_VERSION_FILE), exist_ok=True)
+            with open(IA_VERSION_FILE + ".part", "w") as f:
+                json.dump({"stamp": stamp, "version": version}, f)
+            os.replace(IA_VERSION_FILE + ".part", IA_VERSION_FILE)
+        except OSError:
+            pass
+        return version
+
+
+def cached_news_date():
+    """Date of the newest news item the Internet Adapter has saved."""
+    folder = os.path.join(os.path.dirname(IA_BIN), "NABU Internet Adapter", "Cache")
+    newest = ""
+    for path in glob.glob(os.path.join(folder, "*")):
+        if not path.upper().endswith("NEWS.JSON"):
+            continue
+        try:
+            with open(path, encoding="utf-8-sig") as f:
+                for item in json.load(f).get("NewsItems", []):
+                    newest = max(newest, str(item.get("Published", "")))
+        except (OSError, ValueError, AttributeError):
+            pass
+    return newest
+
+
+def news():
+    """Cloud news and notices for the panel: whether a newer Internet Adapter
+    is available and whether the IA has news it has not loaded."""
+    with NEWS_LOCK:
+        if time.monotonic() >= NEWS["until"]:
+            try:
+                raw = json.loads(fetch(NEWS_URL).decode("utf-8-sig"))
+                items = sorted((n for n in raw["NewsItems"] if isinstance(n, dict)),
+                               key=lambda n: str(n.get("Published", "")), reverse=True)
+                try:
+                    m = VERSION_RE.search(fetch(VERSION_URL, 200).decode("ascii", "replace"))
+                except Exception:
+                    m = None
+                NEWS.update(until=time.monotonic() + NEWS_TTL,
+                            data={"items": items, "latest": m.group(0) if m else ""})
+            except Exception:
+                # the cloud did not answer: the last answer is shown
+                NEWS["until"] = time.monotonic() + NEWS_RETRY
+        data = NEWS["data"]
+    if data is None:
+        return {"ok": False}
+    shown = []
+    for n in data["items"][:NEWS_MAX]:
+        m = re.match(r"(\d{4})-(\d\d)-(\d\d)", str(n.get("Published", "")))
+        shown.append({
+            "date": NEWS_DATE.format(y=m.group(1), mo=m.group(2), d=m.group(3)) if m else "",
+            "title": str(n.get("Title", "")).strip()[:200],
+            "text": str(n.get("Content", "")).strip()[:2000]})
+    newest = str(data["items"][0].get("Published", "")) if data["items"] else ""
+    installed, latest, cached = ia_installed(), data["latest"], cached_news_date()
+    return {"ok": True, "items": shown, "installed": installed, "latest": latest,
+            "update": bool(installed and latest
+                           and version_key(latest) > version_key(installed)),
+            "stale": bool(cached and newest > cached)}
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -1472,6 +1585,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, json.dumps(UPD))
         elif p == "/api/prints":
             self.send(200, json.dumps(prints()))
+        elif p == "/api/news":
+            self.send(200, json.dumps(news()))
         elif p.startswith("/api/print/"):
             self.send_file(PRINTS, p.rsplit("/", 1)[-1], PRINT_RE,
                            "application/pdf", "inline")
@@ -1591,6 +1706,19 @@ button.danger{background:transparent;border-color:#7a3340;color:var(--bad)}
 pre{margin:0;background:#000a1f;border-radius:8px;padding:10px;overflow:auto;
 font:12px/1.35 ui-monospace,"DejaVu Sans Mono",monospace;max-height:55vh;white-space:pre}
 #msg{min-height:1.4em;color:var(--dim);font-size:.9rem;margin-top:10px}
+.notes{list-style:none;margin:10px 0 0;padding:0;font-size:.9rem}
+.notes:empty{display:none}
+.notes li{padding:3px 0 3px 16px;position:relative}
+.notes li::before{content:"";position:absolute;left:0;top:.62em;width:8px;height:8px;border-radius:50%;background:var(--warn)}
+.nlist{list-style:none;margin:0;padding:0}
+.nlist li{padding:7px 0;border-top:1px solid var(--line)}
+.nlist li:first-child{border-top:0}
+.nlist summary{cursor:pointer;font-weight:600}
+.nlist summary small{color:var(--dim);font-weight:400;margin-right:8px;font-variant-numeric:tabular-nums}
+.nlist p{margin:6px 0 2px;font-size:.92rem;white-space:pre-wrap;overflow-wrap:anywhere}
+.nlist .empty{color:var(--dim);font-size:.9rem;padding:10px 0}
+.more{font-size:.82rem;margin-top:8px}
+.more a{color:var(--acc)}
 .plist{list-style:none;margin:0;padding:0;max-height:40vh;overflow:auto}
 .plist li{display:flex;align-items:baseline;gap:12px;
 padding:3px 0;border-top:1px solid var(--line)}
@@ -1630,6 +1758,7 @@ footer a{color:inherit}
 <button onclick="update()" id="b-upd">Update IA</button>
 <button class="wide danger" onclick="poweroff()">Shut down the Pi</button>
 </div>
+<ul class="notes" id="notes"></ul>
 <div id="msg"></div>
 </div>
 
@@ -1646,6 +1775,12 @@ footer a{color:inherit}
 </div>
 <div class="hint" id="p-hint"></div>
 <ul class="plist" id="prints"><li class="empty">…</li></ul>
+</div>
+
+<div class="card">
+<h2>News</h2>
+<ul class="nlist" id="news"><li class="empty">…</li></ul>
+<div class="more"><a href="https://nabu.ca/NABU-News" target="_blank" rel="noopener">See all on nabu.ca</a></div>
 </div>
 
 <div class="card">
@@ -1681,9 +1816,13 @@ const T={
   del:'Delete', confirmDel:w=>'Delete the printout from '+w+'?',
   redo:'Redo with the chosen typeface and paper', redoing:'Redoing the printout…',
   hint:'Applies to the next printouts. Use ↻ to redo one already printed.',
-  older:n=>'There are '+n+' older ones in the printouts folder.'
+  older:n=>'There are '+n+' older ones in the printouts folder.',
+  newIA:(n,o)=>'A newer Internet Adapter is available: '+n+' (installed: '+o+'). Use Update IA.',
+  staleNews:'The Internet Adapter has not loaded the latest news. Use Restart when the NABU is not in use.',
+  noNews:'Could not get the news. The Pi needs an Internet connection.',
+  emptyNews:'No news published.'
 };
-let view='screen', active='', printer=true, printsKey='', off=false;
+let view='screen', active='', printer=true, printsKey='', newsKey='', off=false;
 const $=id=>document.getElementById(id);
 async function api(p,opt){const r=await fetch(p,opt);return r.json();}
 function set(id,cls,txt){const e=$(id);e.className='item '+cls;e.querySelector('b span:last-child').textContent=txt;}
@@ -1709,6 +1848,7 @@ async function act(a,t){
   msg(t);
   try{const r=await post(a); msg(r.ok?T.done:T.error+r.out);}catch(e){msg(T.noConn);}
   setTimeout(()=>{refresh();loadView();},1500);
+  setTimeout(loadNews,20000);
 }
 function toggle(){ active==='active' ? (confirm(T.confirmStop)&&act('stop',T.stopping)) : act('start',T.starting); }
 async function backup(){
@@ -1728,7 +1868,7 @@ async function update(){
     const u=await api('/api/update');
     if(u.state!=='running'){clearInterval(poll);
       msg(u.state==='ok'?T.updateOk:T.updateFail);
-      $('view').textContent=u.out; refresh();}
+      $('view').textContent=u.out; refresh(); setTimeout(loadNews,20000);}
   },3000);
 }
 async function poweroff(){
@@ -1789,7 +1929,31 @@ async function setOpt(){
   catch(e){pnote(T.noConn,true);}
   printsKey=''; loadPrints();
 }
-pnote(); refresh(); loadView();
+async function loadNews(){
+  if(off) return;
+  let r;
+  try{ r=await api('/api/news'); }catch(e){ return; }
+  const key=JSON.stringify(r);
+  if(key===newsKey) return;
+  newsKey=key;
+  const notes=$('notes'); notes.textContent='';
+  const warn=t=>{const li=document.createElement('li');li.textContent=t;notes.appendChild(li);};
+  if(r.update) warn(T.newIA(r.latest,r.installed));
+  if(r.stale) warn(T.staleNews);
+  const ul=$('news'); ul.textContent='';
+  if(!r.ok || !r.items.length){
+    const li=document.createElement('li'); li.className='empty';
+    li.textContent=r.ok?T.emptyNews:T.noNews; ul.appendChild(li); return;
+  }
+  for(const n of r.items){
+    const li=document.createElement('li'), d=document.createElement('details'), s=document.createElement('summary'),
+          w=document.createElement('small'), p=document.createElement('p');
+    w.textContent=n.date; s.appendChild(w); s.appendChild(document.createTextNode(n.title));
+    p.textContent=n.text; d.appendChild(s); d.appendChild(p); li.appendChild(d); ul.appendChild(li);
+  }
+}
+pnote(); refresh(); loadView(); loadNews();
+setInterval(loadNews,600000);
 setInterval(refresh,10000);
 setInterval(()=>{ if(view==='screen'&&!off) loadView(); },5000);
 </script></body></html>"""
