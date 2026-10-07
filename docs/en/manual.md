@@ -495,8 +495,8 @@ The panel gets the news on its own from `cloud.nabu.ca`, without going through t
 
 ## Screen and Log
 
-- **Screen** shows, as text, what is on the IA's interface at that moment. It refreshes every five seconds. It is for watching, not for operating the IA: that is what the `nabu` command is for.
-- **Log** shows the same as `nabu list`.
+- **Screen** shows, as text, what is on the IA's interface at that moment. It refreshes every five seconds. It is for watching, not for operating the IA: that is what the `nabu` command is for. The text size adjusts on its own so the whole screen fits the panel's width. On a phone it ends up very small: tap the screen to enlarge it and move around with the scroll bar, and tap it again to see all of it.
+- **Log** shows the same as `nabu list`. Long lines wrap onto the next line.
 - The **↻** button refreshes the view right away.
 
 The NABU Setup version and release date appear at the bottom of the panel.
@@ -941,4 +941,4 @@ The license covers NABU Setup only. The NABU Internet Adapter is a separate prog
 | 2 | 2026-10-04 | 1.1.0 | Safe shutdown: `nabu poweroff` command and **Shut down the Pi** button on the web panel |
 | 3 | 2026-10-04 | 1.2.0 | `nabu setup` command for updating NABU Setup |
 | 4 | 2026-10-05 | 1.3.0 | Accented letters on the virtual printer, printing from WordStar, choice of typeface and paper, deleting and redoing printouts from the web panel, and backups in `~/nabu/backups` |
-| 5 | 2026-10-06 | 1.4.0 | IA startup without waiting for the network, and nabu.ca news and notices on the web panel |
+| 5 | 2026-10-06 | 1.4.0 | IA startup without waiting for the network; nabu.ca news, notices, and the IA screen fitted to the width on the web panel |

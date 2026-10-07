@@ -10,6 +10,7 @@ NABU Setup and its manual are versioned separately. The script uses version numb
 - Before starting the IA, the service waits up to ten seconds for the USB to RS-422 adapter to show up.
 - New **News** card on the web panel, with the latest posts from nabu.ca. The panel gets them on its own, because the IA, starting without a network, shows the ones it had saved.
 - The panel tells you when a newer Internet Adapter is available and when the IA has not loaded the latest news.
+- On the panel, the IA screen fits the width on its own and shows in full, with no horizontal scroll bar; tap it to enlarge it. Long log lines wrap onto the next line.
 - Removed the automatic move of backups from `~/backups` to `~/nabu/backups`. Anyone updating from 1.2.0 or earlier can move them by hand.
 
 ## NABU Setup 1.3.0 (2026-10-05)
@@ -48,7 +49,7 @@ First public release.
 
 | Revision | Date | NABU Setup | Changes |
 |---|---|---|---|
-| 5 | 2026-10-06 | 1.4.0 | IA startup without waiting for the network, news and notices on the web panel |
+| 5 | 2026-10-06 | 1.4.0 | IA startup without waiting for the network; news, notices, and a screen fitted to the width on the web panel |
 | 4 | 2026-10-05 | 1.3.0 | Accented letters, printing from WordStar, typeface and paper, deleting and redoing printouts, backups folder |
 | 3 | 2026-10-04 | 1.2.0 | `nabu setup` command |
 | 2 | 2026-10-04 | 1.1.0 | Safe shutdown: `nabu poweroff` and the panel button |

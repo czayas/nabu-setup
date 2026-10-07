@@ -1704,7 +1704,13 @@ button.danger{background:transparent;border-color:#7a3340;color:var(--bad)}
 .tabs button{flex:1;padding:8px}
 .tabs button.on{border-color:var(--acc);color:var(--acc)}
 pre{margin:0;background:#000a1f;border-radius:8px;padding:10px;overflow:auto;
-font:12px/1.35 ui-monospace,"DejaVu Sans Mono",monospace;max-height:55vh;white-space:pre}
+font:12px/1.35 ui-monospace,"DejaVu Sans Mono",monospace;max-height:55vh;white-space:pre;
+-webkit-text-size-adjust:100%;text-size-adjust:100%}
+pre.fit{max-height:none;cursor:zoom-in}
+pre.zoom{cursor:zoom-out}
+pre.wrap{white-space:pre-wrap;overflow-wrap:anywhere}
+.vhint{color:var(--dim);font-size:.82rem;margin-top:6px}
+.vhint:empty{display:none}
 #msg{min-height:1.4em;color:var(--dim);font-size:.9rem;margin-top:10px}
 .notes{list-style:none;margin:10px 0 0;padding:0;font-size:.9rem}
 .notes:empty{display:none}
@@ -1790,6 +1796,7 @@ footer a{color:inherit}
 <button onclick="loadView()" title="Actualizar">↻</button>
 </div>
 <pre id="view">…</pre>
+<div class="vhint" id="v-hint"></div>
 </div>
 <footer>@@FOOTER@@</footer>
 </main>
@@ -1810,6 +1817,7 @@ const T={
   confirmOff:'¿Apagar la Pi? Para volver a encenderla tendrás que cortar y devolver la corriente.',
   poweringOff:'Apagando la Pi… Espera a que el LED verde deje de parpadear antes de cortar la corriente.',
   empty:'(vacío)', loadFail:'No se pudo cargar.',
+  tapZoom:'Toca la pantalla para ampliarla.', tapFit:'Toca la pantalla para verla completa.',
   printerOff:'La impresora virtual no está activa.',
   noPrints:'Todavía no hay impresiones. Prueba LPRINT desde MBASIC.',
   page:' página', pages:' páginas',
@@ -1822,7 +1830,7 @@ const T={
   noNews:'No se pudieron consultar las novedades. La Pi necesita conexión a Internet.',
   emptyNews:'No hay novedades publicadas.'
 };
-let view='screen', active='', printer=true, printsKey='', newsKey='', off=false;
+let view='screen', active='', printer=true, printsKey='', newsKey='', off=false, zoom=false;
 const $=id=>document.getElementById(id);
 async function api(p,opt){const r=await fetch(p,opt);return r.json();}
 function set(id,cls,txt){const e=$(id);e.className='item '+cls;e.querySelector('b span:last-child').textContent=txt;}
@@ -1868,7 +1876,7 @@ async function update(){
     const u=await api('/api/update');
     if(u.state!=='running'){clearInterval(poll);
       msg(u.state==='ok'?T.updateOk:T.updateFail);
-      $('view').textContent=u.out; refresh(); setTimeout(loadNews,20000);}
+      $('view').textContent=u.out; fit(); refresh(); setTimeout(loadNews,20000);}
   },3000);
 }
 async function poweroff(){
@@ -1878,9 +1886,28 @@ async function poweroff(){
 }
 function tab(v){view=v;$('t-screen').classList.toggle('on',v==='screen');$('t-log').classList.toggle('on',v==='log');loadView();}
 async function loadView(){
-  try{const r=await api(view==='screen'?'/api/screen':'/api/log');$('view').textContent=r.text||T.empty;}
-  catch(e){$('view').textContent=T.loadFail;}
+  const v=view; let text;
+  try{const r=await api(v==='screen'?'/api/screen':'/api/log'); text=r.text||T.empty;}
+  catch(e){text=T.loadFail;}
+  if(v!==view) return;
+  $('view').textContent=text; fit();
 }
+function fit(){
+  const v=$('view');
+  v.style.fontSize=''; v.classList.remove('zoom'); v.classList.add('fit');
+  v.classList.toggle('wrap',view!=='screen');
+  const over=view==='screen'&&v.scrollWidth>v.clientWidth;
+  if(!over) zoom=false;
+  if(over&&!zoom){
+    let size=Math.floor(12*(v.clientWidth-20)/(v.scrollWidth-20)*10)/10;
+    v.style.fontSize=size+'px';
+    while(v.scrollWidth>v.clientWidth&&size>3){size=Math.round(size*10-1)/10; v.style.fontSize=size+'px';}
+  }
+  v.classList.toggle('fit',over&&!zoom); v.classList.toggle('zoom',over&&zoom);
+  $('v-hint').textContent=over?(zoom?T.tapFit:T.tapZoom):'';
+}
+$('view').onclick=()=>{ if(view!=='screen'||String(getSelection())) return; zoom=!zoom; fit(); };
+addEventListener('resize',fit);
 async function loadPrints(){
   let r;
   try{ r=await api('/api/prints'); }catch(e){ return; }

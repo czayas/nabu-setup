@@ -495,8 +495,8 @@ El panel las consulta por su cuenta en `cloud.nabu.ca`, sin pasar por el IA. Hac
 
 ## Pantalla y Registro
 
-- **Pantalla** muestra, como texto, lo que hay en ese momento en la interfaz del IA. Se actualiza cada cinco segundos. Sirve para mirar, no para manejar el IA: para eso está el comando `nabu`.
-- **Registro** muestra lo mismo que `nabu list`.
+- **Pantalla** muestra, como texto, lo que hay en ese momento en la interfaz del IA. Se actualiza cada cinco segundos. Sirve para mirar, no para manejar el IA: para eso está el comando `nabu`. La letra se ajusta sola para que la pantalla entre completa en el ancho del panel. En un teléfono queda muy chica: toca la pantalla para ampliarla y recorrerla con la barra, y tócala otra vez para volver a verla completa.
+- **Registro** muestra lo mismo que `nabu list`. Las líneas largas continúan en el renglón siguiente.
 - El botón **↻** actualiza la vista en el momento.
 
 Al pie del panel figuran la versión y la fecha de NABU Setup.
@@ -941,4 +941,4 @@ La licencia cubre solamente NABU Setup. El NABU Internet Adapter es un programa 
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: comando `nabu poweroff` y botón **Apagar la Pi** en el panel web |
 | 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` para actualizar NABU Setup |
 | 4 | 2026-10-05 | 1.3.0 | Letras acentuadas y eñe en la impresora virtual, impresión desde WordStar, elección de letra y papel, borrado y reimpresión desde el panel web, y backups en `~/nabu/backups` |
-| 5 | 2026-10-06 | 1.4.0 | Arranque del IA sin esperar a la red, y novedades de nabu.ca y avisos en el panel web |
+| 5 | 2026-10-06 | 1.4.0 | Arranque del IA sin esperar a la red; novedades de nabu.ca, avisos y pantalla del IA ajustada al ancho en el panel web |
