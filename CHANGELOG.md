@@ -9,7 +9,7 @@ NABU Setup and its manual are versioned separately. The script uses version numb
 - The Internet Adapter starts without waiting for the Pi to be online, so the NABU can load sooner. On a Raspberry Pi 3 Model A+, the service went from starting about 31 seconds after power-on to about 12. On an existing installation, the change applies from the next time the Pi is powered on.
 - Before starting the IA, the service waits up to ten seconds for the USB to RS-422 adapter to show up.
 - New **News** card on the web panel, with the latest posts from nabu.ca. The panel gets them on its own, because the IA, starting without a network, shows the ones it had saved.
-- The panel tells you when a newer Internet Adapter is available and when the IA has not loaded the latest news.
+- The panel tells you when a newer Internet Adapter is available and when the IA has not loaded the latest news or channels. To do so, it compares the cloud's news and channel list with the copies the IA keeps.
 - On the panel, the IA screen fits the width on its own and shows in full, with no horizontal scroll bar; tap it to enlarge it. Long log lines wrap onto the next line.
 - Removed the automatic move of backups from `~/backups` to `~/nabu/backups`. Anyone updating from 1.2.0 or earlier can move them by hand.
 

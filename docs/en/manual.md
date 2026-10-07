@@ -464,7 +464,7 @@ The first card sums up the state of the server and refreshes every ten seconds. 
 Below the buttons, two notices appear when they apply:
 
 - **A newer Internet Adapter is available**, with the published version number and the installed one. Install it with **Update IA**.
-- **The Internet Adapter has not loaded the latest news.** It means nabu.ca published something after the last time the IA reached the cloud. **Restart** makes the IA load it, as long as the Pi has an Internet connection. Do it when the NABU is not in use, because the restart interrupts whatever it is loading.
+- **The Internet Adapter has not loaded the latest news or channels.** It means that, after the last time the IA reached the cloud, nabu.ca published a news item or changed the channel list, for example by adding a game. **Restart** makes the IA load them, as long as the Pi has an Internet connection. Do it when the NABU is not in use, because the restart interrupts whatever it is loading.
 
 ## Printouts
 
@@ -488,7 +488,8 @@ The **News** card shows the five most recent posts from nabu.ca: Internet Adapte
 
 The panel gets the news on its own from `cloud.nabu.ca`, without going through the IA. This is needed because the IA starts without waiting for the network, so the NABU can load as soon as possible, and at startup it therefore shows the news and the channel list it had saved. The panel, on the other hand, is opened when the Pi is already online.
 
-- The news shown on the NABU's menu is the IA's. It is brought up to date when you restart the IA while the Pi is online; the panel tells you when that is needed.
+- The news and the channel list shown on the NABU's menu are the IA's. They are brought up to date when you restart the IA while the Pi is online; the panel tells you when that is needed.
+- To give that notice, the panel compares the cloud's news and channel list with the copies the IA has saved. It does not change anything in the IA.
 - The panel asks the cloud at most once every half hour, and only while someone has it open.
 - To find out which IA version is installed, the panel asks the program only once and saves the answer in `~/.cache/nabu-setup/`.
 - If the Pi has no Internet connection, the card says so and no notices appear.
@@ -833,7 +834,7 @@ To switch to Spanish, use `nabu-setup-es.sh` in both places.
 | The panel does not accept the password | Run the script again and choose a new one |
 | `Power supply: PROBLEMS` | The power supply is not delivering enough current. Use the official one for your model |
 | The PDF for a print job does not show up | Wait five seconds after printing. Use `nabu status` to confirm the printer is running, and check `journalctl -u nabu-print -n 20` |
-| The NABU's menu does not show the latest news | The IA starts before the Pi is online and uses the news it had saved. Restart it with `nabu restart` or with the **Restart** button when the NABU is not in use |
+| The NABU's menu does not show the latest news or new channels | The IA starts before the Pi is online and uses what it had saved. Restart it with `nabu restart` or with the **Restart** button when the NABU is not in use |
 | The panel says it could not get the news | The Pi has no Internet connection, or `cloud.nabu.ca` is not responding. The panel tries again on its own every ten minutes |
 | The script says the processor is ARMv6 | That Pi model cannot run the IA. You need a Pi 2 or later, or a Zero 2 W |
 

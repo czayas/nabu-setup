@@ -9,7 +9,7 @@ NABU Setup y su manual llevan numeraciones separadas. El script usa números de 
 - El Internet Adapter arranca sin esperar a que la Pi tenga red, para que la NABU pueda cargar antes. En una Raspberry Pi 3 Model A+, el servicio pasó de iniciarse a unos 31 segundos del encendido a hacerlo a unos 12. En una instalación existente, el cambio vale desde el siguiente encendido de la Pi.
 - Antes de iniciar el IA, el servicio espera hasta diez segundos a que aparezca el adaptador USB a RS-422.
 - Nueva tarjeta **Novedades** en el panel web, con las últimas publicaciones de nabu.ca. El panel las consulta por su cuenta, porque el IA, al arrancar sin red, muestra las que tenía guardadas.
-- El panel avisa cuando hay una versión nueva del Internet Adapter y cuando el IA tiene novedades sin cargar.
+- El panel avisa cuando hay una versión nueva del Internet Adapter y cuando el IA tiene novedades o canales sin cargar. Para eso compara las novedades y la lista de canales de la nube con las copias que guarda el IA.
 - En el panel, la pantalla del IA se ajusta sola al ancho y entra completa, sin barra horizontal; al tocarla se amplía. Las líneas largas del registro continúan en el renglón siguiente.
 - Se quitó la mudanza automática de los backups de `~/backups` a `~/nabu/backups`. Quien actualice desde la 1.2.0 o una anterior puede moverlos a mano.
 

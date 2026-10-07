@@ -1324,6 +1324,9 @@ PRINT_PY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nabu-print.
 # Internet Adapter arranca sin esperar a la red y muestra las que tenía guardadas.
 NEWS_URL = os.environ.get("NABU_NEWS_URL", "https://cloud.nabu.ca/News.json")
 VERSION_URL = os.environ.get("NABU_VERSION_URL", "https://cloud.nabu.ca/Version.txt")
+# Lista de canales de la nube, para avisar cuando el IA tiene una más vieja
+CHANNELS_URL = os.environ.get(
+    "NABU_CHANNELS_URL", "https://cloud.nabu.ca/HomeBrew/titles/filesV3.json")
 NEWS_DATE = "{d}/{mo}/{y}"   # fecha de cada novedad en la lista
 NEWS_MAX = 5               # novedades que muestra el panel (las más nuevas)
 NEWS_TTL = 1800            # segundos que vale una consulta a la nube
@@ -1479,25 +1482,51 @@ def ia_installed():
         return version
 
 
+def cached_json(url):
+    """Copia que el Internet Adapter tiene guardada de un archivo de la nube, ya
+    interpretada, o None si no está o no se puede leer."""
+    folder = os.path.join(os.path.dirname(IA_BIN), "NABU Internet Adapter", "Cache")
+    suffix = "-" + url.rsplit("/", 1)[-1].upper()
+    for path in glob.glob(os.path.join(folder, "*")):
+        if path.upper().endswith(suffix):
+            try:
+                with open(path, encoding="utf-8-sig") as f:
+                    return json.load(f)
+            except (OSError, ValueError):
+                pass
+    return None
+
+
 def cached_news_date():
     """Fecha de la novedad más reciente que tiene guardada el Internet Adapter."""
-    folder = os.path.join(os.path.dirname(IA_BIN), "NABU Internet Adapter", "Cache")
     newest = ""
-    for path in glob.glob(os.path.join(folder, "*")):
-        if not path.upper().endswith("NEWS.JSON"):
-            continue
-        try:
-            with open(path, encoding="utf-8-sig") as f:
-                for item in json.load(f).get("NewsItems", []):
-                    newest = max(newest, str(item.get("Published", "")))
-        except (OSError, ValueError, AttributeError):
-            pass
+    try:
+        for item in cached_json(NEWS_URL)["NewsItems"]:
+            newest = max(newest, str(item.get("Published", "")))
+    except (TypeError, KeyError, AttributeError):
+        pass
     return newest
+
+
+def channel_set(raw):
+    """Canales de una lista, como (categoría, título, archivo). No cuenta los locales."""
+    found = set()
+    try:
+        for group in raw["Items"]:
+            if group.get("IsLocal"):
+                continue
+            for item in group.get("Files") or []:
+                if not item.get("IsLocal"):
+                    found.add((str(group.get("Title", "")), str(item.get("Title", "")),
+                               str(item.get("Filename", ""))))
+    except (TypeError, KeyError, AttributeError):
+        pass
+    return found
 
 
 def news():
     """Novedades de la nube y avisos para el panel: si hay una versión nueva
-    del Internet Adapter y si el IA tiene novedades sin cargar."""
+    del Internet Adapter y si el IA tiene novedades o canales sin cargar."""
     with NEWS_LOCK:
         if time.monotonic() >= NEWS["until"]:
             try:
@@ -1508,8 +1537,14 @@ def news():
                     m = VERSION_RE.search(fetch(VERSION_URL, 200).decode("ascii", "replace"))
                 except Exception:
                     m = None
+                try:
+                    channels = channel_set(json.loads(
+                        fetch(CHANNELS_URL, 5000000).decode("utf-8-sig")))
+                except Exception:
+                    channels = set()
                 NEWS.update(until=time.monotonic() + NEWS_TTL,
-                            data={"items": items, "latest": m.group(0) if m else ""})
+                            data={"items": items, "latest": m.group(0) if m else "",
+                                  "channels": channels})
             except Exception:
                 # la nube no respondió: se muestra lo último que se consultó
                 NEWS["until"] = time.monotonic() + NEWS_RETRY
@@ -1525,10 +1560,12 @@ def news():
             "text": str(n.get("Content", "")).strip()[:2000]})
     newest = str(data["items"][0].get("Published", "")) if data["items"] else ""
     installed, latest, cached = ia_installed(), data["latest"], cached_news_date()
+    mine = channel_set(cached_json(CHANNELS_URL))
     return {"ok": True, "items": shown, "installed": installed, "latest": latest,
             "update": bool(installed and latest
                            and version_key(latest) > version_key(installed)),
-            "stale": bool(cached and newest > cached)}
+            "stale": bool((cached and newest > cached)
+                          or (mine and data["channels"] and mine != data["channels"]))}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1826,7 +1863,7 @@ const T={
   hint:'Vale para las próximas impresiones. Con ↻ se rehace una ya impresa.',
   older:n=>'Hay '+n+' más antiguas en la carpeta de impresiones.',
   newIA:(n,o)=>'Hay una versión nueva del Internet Adapter: '+n+' (instalada: '+o+'). Usa Actualizar IA.',
-  staleNews:'El Internet Adapter tiene novedades sin cargar. Usa Reiniciar cuando la NABU no esté en uso.',
+  staleNews:'El Internet Adapter tiene novedades o canales sin cargar. Usa Reiniciar cuando la NABU no esté en uso.',
   noNews:'No se pudieron consultar las novedades. La Pi necesita conexión a Internet.',
   emptyNews:'No hay novedades publicadas.'
 };
