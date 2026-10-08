@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NABU Setup — a minimal NABU server for Raspberry Pi (Raspberry Pi OS Lite)
-# Version 1.3.0 · released on 2026-10-05 · English edition
+# Version 1.4.0 · released on 2026-10-08 · English edition
 #
 # Retro Informática Paraguay — https://www.youtube.com/@retroinfopy
 # Repository and user manual: https://github.com/czayas/nabu-setup
@@ -16,8 +16,11 @@
 #     when the Pi boots, and you can open its interface over SSH
 #   - Installs the `nabu` administration command
 #   - Installs a lightweight, password-protected web panel (port 80: http://nabu.local)
+#     that also shows the news from the NABU cloud
 #   - Installs the virtual printer: whatever the NABU sends to LST: from Cloud CP/M
 #     is saved as a PDF in ~/nabu/printer and shows up on the panel
+#   - Installs the local telnet, for logging in to the Pi from a NABU terminal;
+#     it only accepts connections from the Pi itself (127.0.0.1)
 #
 # Usage (on the Pi, as your regular user, NOT with sudo):
 #   bash nabu-setup-en.sh
@@ -29,8 +32,8 @@
 # with the author of the NABU Internet Adapter.
 set -euo pipefail
 
-NABU_SETUP_VERSION="1.3.0"
-NABU_SETUP_DATE="2026-10-05"
+NABU_SETUP_VERSION="1.4.0"
+NABU_SETUP_DATE="2026-10-08"
 NABU_SETUP_LANG="en"
 NABU_SETUP_REPO="https://github.com/czayas/nabu-setup"
 
@@ -103,7 +106,27 @@ if [[ $ASK_PW -eq 1 ]]; then
   done
 fi
 
-PACKAGES="tmux unzip wget python3"
+# ---------------------------------------------------------------------------
+# Local telnet (asked only once; change it later with nabu telnet on|off)
+# ---------------------------------------------------------------------------
+ASK_TELNET=1
+grep -qs '^NABU_TELNET_ASKED=' /etc/nabu-ia.conf && ASK_TELNET=0
+TELNET_ON=1
+if [[ $ASK_TELNET -eq 1 ]]; then
+  echo "The local telnet lets you log in to the Pi from a NABU terminal."
+  echo "It only accepts connections from the Pi itself (127.0.0.1)."
+  read -rp "Turn the local telnet on? [Y/n] " r || true
+  [[ "${r,,}" == n* ]] && TELNET_ON=0
+fi
+
+# inetutils-telnetd brings inetd along, which would open port 23 to the whole
+# network. If it was not installed, it is masked before installing it: the local
+# telnet uses its own systemd unit, which listens on 127.0.0.1 only.
+if ! dpkg -s inetutils-inetd >/dev/null 2>&1; then
+  sudo systemctl mask inetutils-inetd.service >/dev/null 2>&1 || true
+fi
+
+PACKAGES="tmux unzip wget python3 inetutils-telnetd"
 if dpkg -s $PACKAGES >/dev/null 2>&1; then
   echo "==> Packages already installed"
 else
@@ -167,6 +190,7 @@ NABU_URL="$URL"
 NABU_PORT="$PORT"
 NABU_PRINT_DIR="$PRINT_DIR"
 NABU_BACKUP_DIR="$BACKUP_DIR"
+NABU_TELNET_ASKED="yes"
 NABU_SETUP_VERSION="$NABU_SETUP_VERSION"
 NABU_SETUP_DATE="$NABU_SETUP_DATE"
 NABU_SETUP_LANG="$NABU_SETUP_LANG"
@@ -177,8 +201,8 @@ echo "==> Creating the nabu-ia systemd service"
 sudo tee /etc/systemd/system/nabu-ia.service >/dev/null <<EOF
 [Unit]
 Description=NABU Internet Adapter (in a tmux session)
-After=network-online.target
-Wants=network-online.target
+# It does not wait for the network: the NABU can load as soon as the Pi boots.
+# If the IA cannot reach the cloud at startup, it uses what it already has.
 # If the IA fails 10 times within 5 minutes, systemd stops retrying
 StartLimitIntervalSec=300
 StartLimitBurst=10
@@ -188,6 +212,8 @@ Type=forking
 User=$U
 WorkingDirectory=$BINDIR
 Environment=TERM=xterm-256color
+# Waits up to 10 seconds for the USB to RS-422 adapter to show up
+ExecStartPre=-/usr/bin/timeout 10 /bin/sh -c 'until ls /dev/ttyUSB* >/dev/null 2>&1; do sleep 0.5; done'
 # The IA's errors (stderr) go to ia-error.log without disturbing the screen
 ExecStart=/usr/bin/tmux -L nabu -f $DIR/tmux.conf new-session -d -s nabu -x 100 -y 35 "exec $BINPATH 2>>$DIR/ia-error.log"
 ExecStop=-/usr/bin/tmux -L nabu kill-server
@@ -215,6 +241,20 @@ PRINT_DIR="${NABU_PRINT_DIR:-$NABU_DIR/printer}"
 BACKUP_DIR="${NABU_BACKUP_DIR:-$NABU_DIR/backups}"
 VERSION="NABU Setup ${NABU_SETUP_VERSION:-?} (${NABU_SETUP_DATE:-?})"
 
+telnet_state() {
+  if [[ "$(systemctl is-active nabu-telnet.socket 2>/dev/null)" == active ]]; then
+    echo "Local telnet: on (127.0.0.1, port 23)"
+  else
+    echo "Local telnet: off"
+  fi
+  # port 23 must not be left open to the rest of the network
+  if command -v ss >/dev/null && ss -Hltn 'sport = :23' 2>/dev/null \
+       | awk '{print $4}' | grep -qv '^127\.0\.0\.1:'; then
+    echo "WARNING: port 23 is also open to other addresses."
+    echo "         Another telnet service is running. Check: ss -ltn 'sport = :23'"
+  fi
+}
+
 usage() {
   cat <<TXT
 $VERSION
@@ -232,6 +272,8 @@ Usage: nabu [command]
                   ${BACKUP_DIR/#$HOME/\~} (the latest 5 are kept)
   nabu update     Downloads the latest IA release (makes a backup first)
   nabu setup      Downloads and installs the latest published NABU Setup release
+  nabu telnet     Shows whether the local telnet is on; on or off changes it
+                  (it lets you log in to the Pi from a NABU terminal)
   nabu poweroff   Shuts the Pi down safely; after that you can cut the power
   nabu version    Shows the NABU Setup version and release date
   nabu help       Shows this help
@@ -258,6 +300,7 @@ case "${1:-}" in
     else
       echo "Virtual printer: stopped"
     fi
+    telnet_state
     if command -v vcgencmd >/dev/null; then
       vcgencmd measure_temp
       t=$(vcgencmd get_throttled | cut -d= -f2)
@@ -318,6 +361,14 @@ case "${1:-}" in
     fi
     echo
     exec bash "$tmp" ;;
+  telnet)
+    case "${2:-}" in
+      on)  sudo systemctl enable -q --now nabu-telnet.socket ;;
+      off) sudo systemctl disable -q --now nabu-telnet.socket ;;
+      "")  ;;
+      *)   echo "Usage: nabu telnet [on|off]"; exit 1 ;;
+    esac
+    telnet_state ;;
   poweroff)
     echo "Shutting down the Pi. Wait until the green LED stops blinking before cutting the power."
     exec sudo systemctl poweroff ;;
@@ -417,12 +468,6 @@ if __name__ == "__main__":
 PYEOF
 sudo chmod 755 /usr/local/lib/nabu/nabu-backup.py
 mkdir -p "$BACKUP_DIR"
-# Up to release 1.2.0 backups were saved in ~/backups: they are moved
-if compgen -G "$HOME/backups/nabu-backup-*.zip" >/dev/null; then
-  echo "==> Moving the backups from ~/backups to ${BACKUP_DIR/#$HOME/\~}"
-  mv -n "$HOME"/backups/nabu-backup-*.zip "$BACKUP_DIR"/
-  rmdir "$HOME/backups" 2>/dev/null || true
-fi
 
 echo "==> Installing the virtual printer (LST.TXT to PDF)"
 sudo tee /usr/local/lib/nabu/nabu-print.py >/dev/null <<'PYEOF'
@@ -1274,7 +1319,9 @@ echo "==> Installing the web panel"
 sudo tee /usr/local/lib/nabu/nabu-web.py >/dev/null <<'PYEOF'
 #!/usr/bin/env python3
 """Minimal web panel for the NABU server (standard library only)."""
-import base64, glob, hashlib, hmac, html, json, os, re, subprocess, threading
+import base64, glob, hashlib, hmac, html, json, os, re, struct, subprocess
+import threading, time, zlib
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 CONF = os.environ.get("NABU_WEB_CONF", "/etc/nabu-web.conf")
@@ -1308,6 +1355,47 @@ NO_PRINT = "That printout no longer exists."
 NO_RAW = "The original data of that printout is missing; it cannot be redone."
 BAD_SETTING = "Unknown typeface or paper."
 WHEN = "{mo}/{d}/{y} {h}:{mi}:{s}"     # date and time of each printout in the list
+# Name and icon of the panel when it is added to a phone's home screen. The
+# icon is a 32 x 32 pixel drawing, one character per pixel. If ICON_FILE (a
+# square PNG) exists, the panel uses that one instead.
+APP_NAME = "NABU"
+ICON_FILE = os.path.join(IA.get("NABU_DIR") or os.path.expanduser("~/nabu"), "icon.png")
+ICON_MAX = 2000000         # bytes; a larger file is ignored
+ICON_COLORS = {"b": b"\x2b\x7d\xe9", "c": b"\x3a\x8a\xf0", "w": b"\xff\xff\xff"}
+ICON_ROWS = (
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbwwbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbwwbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbwwbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbwwbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbwwbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbwwbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbwwbccbccbccbwwbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+)
 BACKUPS = (os.environ.get("NABU_BACKUP_DIR") or IA.get("NABU_BACKUP_DIR")
            or os.path.expanduser("~/nabu/backups"))
 BACKUP_RE = re.compile(r"nabu-backup-[0-9-]+\.zip")
@@ -1322,6 +1410,24 @@ FONTS = ("matrix", "serif", "sans")
 PAPERS = ("fanfold", "plain")
 SETTINGS = os.path.join(PRINTS, ".settings.json")
 PRINT_PY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nabu-print.py")
+# News from the NABU cloud. The panel gets it on its own, because the Internet
+# Adapter starts without waiting for the network and shows the news it had saved.
+NEWS_URL = os.environ.get("NABU_NEWS_URL", "https://cloud.nabu.ca/News.json")
+VERSION_URL = os.environ.get("NABU_VERSION_URL", "https://cloud.nabu.ca/Version.txt")
+# Channel list from the cloud, to tell when the IA has an older one
+CHANNELS_URL = os.environ.get(
+    "NABU_CHANNELS_URL", "https://cloud.nabu.ca/HomeBrew/titles/filesV3.json")
+NEWS_DATE = "{mo}/{d}/{y}"   # date of each news item in the list
+NEWS_MAX = 5               # news items shown on the panel (the newest ones)
+NEWS_TTL = 1800            # seconds a cloud query stays valid
+NEWS_RETRY = 300           # wait before asking again when the cloud did not answer
+NEWS = {"until": 0.0, "data": None}
+NEWS_LOCK = threading.Lock()
+IA_LOCK = threading.Lock()
+IA_BIN = IA.get("NABU_BIN", "")
+IA_VERSION_FILE = os.environ.get("NABU_IA_VERSION_FILE") or os.path.expanduser(
+    "~/.cache/nabu-setup/ia-version.json")
+VERSION_RE = re.compile(r"\d{4}\.\d\d\.\d\d\.\d\d")
 
 
 def check_auth(header):
@@ -1340,6 +1446,49 @@ def check_auth(header):
         AUTH_OK.add(header)
         return True
     return False
+
+
+def pixel_png(rows, colors, scale):
+    """PNG of a pixel drawing, enlarged `scale` times."""
+    side = len(rows) * scale
+    raw = b"".join((b"\x00" + b"".join(colors[c] * scale for c in row)) * scale
+                   for row in rows)
+
+    def chunk(tag, data):
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data)))
+
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", side, side, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
+ICON = pixel_png(ICON_ROWS, ICON_COLORS, 16)
+
+
+def icon():
+    """Returns (PNG, custom): the one in ICON_FILE if it exists and is a PNG;
+    otherwise, the panel's own."""
+    try:
+        if os.path.getsize(ICON_FILE) <= ICON_MAX:
+            with open(ICON_FILE, "rb") as f:
+                data = f.read()
+            if data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
+                return data, True
+    except OSError:
+        pass
+    return ICON, False
+
+
+def manifest():
+    """Description of the panel as an app, for the phone's browser."""
+    data, custom = icon()
+    entry = {"src": "/icon.png", "type": "image/png", "purpose": "any",
+             "sizes": "%dx%d" % struct.unpack(">II", data[16:24])}
+    icons = [entry] if custom else [entry, dict(entry, purpose="maskable")]
+    return {"name": REALM, "short_name": APP_NAME, "start_url": "/", "scope": "/",
+            "display": "standalone", "background_color": "#001233",
+            "theme_color": "#001233", "icons": icons}
 
 
 def run(cmd, timeout=20):
@@ -1369,6 +1518,7 @@ def status():
         "temp": temp,
         "throttled": throttled,
         "update": UPD["state"],
+        "build": BUILD,
     }
 
 
@@ -1418,6 +1568,140 @@ def do_update():
     UPD.update(state="ok" if rc == 0 else "error", out=out[-4000:])
 
 
+def fetch(url, limit=2000000):
+    """Downloads a file from the cloud and returns its content."""
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "NABU-Setup/%s" % IA.get("NABU_SETUP_VERSION", "0")})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return r.read(limit)
+
+
+def version_key(version):
+    return tuple(int(n) for n in version.split("."))
+
+
+def ia_installed():
+    """Installed Internet Adapter version, or "" if it could not be found out.
+
+    The program is asked (--version) only once for each installed file; the
+    answer is saved, also when it could not be found out."""
+    try:
+        st = os.stat(IA_BIN)
+    except OSError:
+        return ""
+    stamp = [int(st.st_mtime), st.st_size]
+    with IA_LOCK:
+        try:
+            with open(IA_VERSION_FILE) as f:
+                saved = json.load(f)
+            if saved.get("stamp") == stamp:
+                return str(saved.get("version", ""))
+        except (OSError, ValueError, AttributeError):
+            pass
+        try:
+            r = subprocess.run([IA_BIN, "--version"], capture_output=True, text=True,
+                               timeout=20, stdin=subprocess.DEVNULL,
+                               cwd=os.path.dirname(IA_BIN))
+            m = VERSION_RE.search(r.stdout + r.stderr)
+        except Exception:
+            m = None
+        version = m.group(0) if m else ""
+        try:
+            os.makedirs(os.path.dirname(IA_VERSION_FILE), exist_ok=True)
+            with open(IA_VERSION_FILE + ".part", "w") as f:
+                json.dump({"stamp": stamp, "version": version}, f)
+            os.replace(IA_VERSION_FILE + ".part", IA_VERSION_FILE)
+        except OSError:
+            pass
+        return version
+
+
+def cached_json(url):
+    """The copy of a cloud file the Internet Adapter has saved, already parsed,
+    or None if it is missing or cannot be read."""
+    folder = os.path.join(os.path.dirname(IA_BIN), "NABU Internet Adapter", "Cache")
+    suffix = "-" + url.rsplit("/", 1)[-1].upper()
+    for path in glob.glob(os.path.join(folder, "*")):
+        if path.upper().endswith(suffix):
+            try:
+                with open(path, encoding="utf-8-sig") as f:
+                    return json.load(f)
+            except (OSError, ValueError):
+                pass
+    return None
+
+
+def cached_news_date():
+    """Date of the newest news item the Internet Adapter has saved."""
+    newest = ""
+    try:
+        for item in cached_json(NEWS_URL)["NewsItems"]:
+            newest = max(newest, str(item.get("Published", "")))
+    except (TypeError, KeyError, AttributeError):
+        pass
+    return newest
+
+
+def channel_set(raw):
+    """Channels in a list, as (category, title, file). Local ones are left out."""
+    found = set()
+    try:
+        for group in raw["Items"]:
+            if group.get("IsLocal"):
+                continue
+            for item in group.get("Files") or []:
+                if not item.get("IsLocal"):
+                    found.add((str(group.get("Title", "")), str(item.get("Title", "")),
+                               str(item.get("Filename", ""))))
+    except (TypeError, KeyError, AttributeError):
+        pass
+    return found
+
+
+def news():
+    """Cloud news and notices for the panel: whether a newer Internet Adapter
+    is available and whether the IA has news or channels it has not loaded."""
+    with NEWS_LOCK:
+        if time.monotonic() >= NEWS["until"]:
+            try:
+                raw = json.loads(fetch(NEWS_URL).decode("utf-8-sig"))
+                items = sorted((n for n in raw["NewsItems"] if isinstance(n, dict)),
+                               key=lambda n: str(n.get("Published", "")), reverse=True)
+                try:
+                    m = VERSION_RE.search(fetch(VERSION_URL, 200).decode("ascii", "replace"))
+                except Exception:
+                    m = None
+                try:
+                    channels = channel_set(json.loads(
+                        fetch(CHANNELS_URL, 5000000).decode("utf-8-sig")))
+                except Exception:
+                    channels = set()
+                NEWS.update(until=time.monotonic() + NEWS_TTL,
+                            data={"items": items, "latest": m.group(0) if m else "",
+                                  "channels": channels})
+            except Exception:
+                # the cloud did not answer: the last answer is shown
+                NEWS["until"] = time.monotonic() + NEWS_RETRY
+        data = NEWS["data"]
+    if data is None:
+        return {"ok": False}
+    shown = []
+    for n in data["items"][:NEWS_MAX]:
+        m = re.match(r"(\d{4})-(\d\d)-(\d\d)", str(n.get("Published", "")))
+        shown.append({
+            "date": NEWS_DATE.format(y=m.group(1), mo=m.group(2), d=m.group(3)) if m else "",
+            "title": str(n.get("Title", "")).strip()[:200],
+            "text": str(n.get("Content", "")).strip()[:2000]})
+    newest = str(data["items"][0].get("Published", "")) if data["items"] else ""
+    installed, latest, cached = ia_installed(), data["latest"], cached_news_date()
+    mine = channel_set(cached_json(CHANNELS_URL))
+    return {"ok": True, "items": shown, "installed": installed, "latest": latest,
+            "update": bool(installed and latest
+                           and version_key(latest) > version_key(installed)),
+            "stale": bool((cached and newest > cached)
+                          or (mine and data["channels"] and mine != data["channels"]))}
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -1425,7 +1709,9 @@ class Handler(BaseHTTPRequestHandler):
     def send(self, code, body, ctype="application/json"):
         b = body.encode() if isinstance(body, str) else body
         self.send_response(code)
-        self.send_header("Content-Type", ctype + "; charset=utf-8")
+        if not ctype.startswith("image/"):
+            ctype += "; charset=utf-8"
+        self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(b)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -1455,9 +1741,14 @@ class Handler(BaseHTTPRequestHandler):
         return False
 
     def do_GET(self):
+        p = self.path.split("?")[0]
+        # the icon and the app description are served without a password
+        if p == "/icon.png":
+            return self.send(200, icon()[0], "image/png")
+        if p == "/manifest.json":
+            return self.send(200, json.dumps(manifest()), "application/manifest+json")
         if not self.authorized():
             return
-        p = self.path.split("?")[0]
         if p == "/":
             self.send(200, PAGE, "text/html")
         elif p == "/api/status":
@@ -1472,6 +1763,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send(200, json.dumps(UPD))
         elif p == "/api/prints":
             self.send(200, json.dumps(prints()))
+        elif p == "/api/news":
+            self.send(200, json.dumps(news()))
         elif p.startswith("/api/print/"):
             self.send_file(PRINTS, p.rsplit("/", 1)[-1], PRINT_RE,
                            "application/pdf", "inline")
@@ -1559,6 +1852,11 @@ PAGE = r"""<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#001233">
+<meta name="application-name" content="NABU">
+<meta name="apple-mobile-web-app-title" content="NABU">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
 <title>NABU Server</title>
 <style>
 :root{--bg:#001233;--card:#0b1f4a;--line:#1d3570;--fg:#e8eefc;--dim:#93a4cc;
@@ -1589,8 +1887,33 @@ button.danger{background:transparent;border-color:#7a3340;color:var(--bad)}
 .tabs button{flex:1;padding:8px}
 .tabs button.on{border-color:var(--acc);color:var(--acc)}
 pre{margin:0;background:#000a1f;border-radius:8px;padding:10px;overflow:auto;
-font:12px/1.35 ui-monospace,"DejaVu Sans Mono",monospace;max-height:55vh;white-space:pre}
+font:12px/1.35 ui-monospace,"DejaVu Sans Mono",monospace;max-height:55vh;white-space:pre;
+-webkit-text-size-adjust:100%;text-size-adjust:100%}
+pre.fit{max-height:none;cursor:zoom-in}
+pre.zoom{cursor:zoom-out}
+pre.wrap{white-space:pre-wrap;overflow-wrap:anywhere}
+.vhint{color:var(--dim);font-size:.82rem;margin-top:6px}
+.vhint:empty{display:none}
 #msg{min-height:1.4em;color:var(--dim);font-size:.9rem;margin-top:10px}
+#lost{display:none;position:sticky;top:8px;z-index:5;margin:0 0 14px;padding:12px 14px;
+border-radius:12px;background:#4a1620;border:1px solid var(--bad);color:#ffe9e9}
+#lost b{display:block}
+#lost small{display:block;color:#ffb9b9;font-size:.85rem;margin-top:2px}
+body.lost #lost{display:block}
+body.lost .card{opacity:.45;pointer-events:none}
+.notes{list-style:none;margin:10px 0 0;padding:0;font-size:.9rem}
+.notes:empty{display:none}
+.notes li{padding:3px 0 3px 16px;position:relative}
+.notes li::before{content:"";position:absolute;left:0;top:.62em;width:8px;height:8px;border-radius:50%;background:var(--warn)}
+.nlist{list-style:none;margin:0;padding:0}
+.nlist li{padding:7px 0;border-top:1px solid var(--line)}
+.nlist li:first-child{border-top:0}
+.nlist summary{cursor:pointer;font-weight:600}
+.nlist summary small{color:var(--dim);font-weight:400;margin-right:8px;font-variant-numeric:tabular-nums}
+.nlist p{margin:6px 0 2px;font-size:.92rem;white-space:pre-wrap;overflow-wrap:anywhere}
+.nlist .empty{color:var(--dim);font-size:.9rem;padding:10px 0}
+.more{font-size:.82rem;margin-top:8px}
+.more a{color:var(--acc)}
 .plist{list-style:none;margin:0;padding:0;max-height:40vh;overflow:auto}
 .plist li{display:flex;align-items:baseline;gap:12px;
 padding:3px 0;border-top:1px solid var(--line)}
@@ -1614,6 +1937,7 @@ footer{color:var(--dim);font-size:.78rem;text-align:center;padding:2px 0 14px}
 footer a{color:inherit}
 </style></head><body><main>
 <h1><span>NABU</span> Server</h1>
+<div id="lost"><b id="lost-t" role="alert"></b><small id="lost-s"></small></div>
 
 <div class="card"><div class="grid">
 <div class="item" id="s-svc"><small>Internet Adapter</small><b><span class="dot"></span><span>…</span></b></div>
@@ -1630,6 +1954,7 @@ footer a{color:inherit}
 <button onclick="update()" id="b-upd">Update IA</button>
 <button class="wide danger" onclick="poweroff()">Shut down the Pi</button>
 </div>
+<ul class="notes" id="notes"></ul>
 <div id="msg"></div>
 </div>
 
@@ -1649,12 +1974,19 @@ footer a{color:inherit}
 </div>
 
 <div class="card">
+<h2>News</h2>
+<ul class="nlist" id="news"><li class="empty">…</li></ul>
+<div class="more"><a href="https://nabu.ca/NABU-News" target="_blank" rel="noopener">See all on nabu.ca</a></div>
+</div>
+
+<div class="card">
 <div class="tabs">
 <button id="t-screen" class="on" onclick="tab('screen')">Screen</button>
 <button id="t-log" onclick="tab('log')">Log</button>
 <button onclick="loadView()" title="Refresh">↻</button>
 </div>
 <pre id="view">…</pre>
+<div class="vhint" id="v-hint"></div>
 </div>
 <footer>@@FOOTER@@</footer>
 </main>
@@ -1666,49 +1998,86 @@ const T={
   stop:'Stop', start:'Start',
   restarting:'Restarting…', stopping:'Stopping…', starting:'Starting…',
   confirmStop:'Stop the Internet Adapter?',
-  done:'Done.', error:'Error: ', noConn:'Connection error.', noPi:'Cannot reach the Pi.',
+  done:'Done.', error:'Error: ', noConn:'Connection error.',
+  lost:'Cannot reach the Pi', lostTitle:'No connection',
+  lostFor:t=>'Last contact: '+t+' ago. Retrying…',
   updating:'Updating… this may take a few minutes.',
   confirmUpdate:'Download and install the latest Internet Adapter? A backup is made first.',
   updateOk:'Update complete.', updateFail:'The update failed (see Log).',
   backingUp:'Creating backup…', backupOk:'Backup created: ', downloading:'. Downloading…',
   backupFail:'Could not create the backup: ',
   confirmOff:'Shut down the Pi? To turn it back on you will have to cut the power and restore it.',
-  poweringOff:'Shutting down the Pi… Wait until the green LED stops blinking before cutting the power.',
+  halting:'Shutting down the Pi…',
+  haltHint:'Wait until the green LED stops blinking before cutting the power.',
   empty:'(empty)', loadFail:'Could not load.',
+  tapZoom:'Tap the screen to enlarge it.', tapFit:'Tap the screen to see all of it.',
   printerOff:'The virtual printer is not running.',
   noPrints:'No printouts yet. Try LPRINT from MBASIC.',
   page:' page', pages:' pages',
   del:'Delete', confirmDel:w=>'Delete the printout from '+w+'?',
   redo:'Redo with the chosen typeface and paper', redoing:'Redoing the printout…',
   hint:'Applies to the next printouts. Use ↻ to redo one already printed.',
-  older:n=>'There are '+n+' older ones in the printouts folder.'
+  older:n=>'There are '+n+' older ones in the printouts folder.',
+  newIA:(n,o)=>'A newer Internet Adapter is available: '+n+' (installed: '+o+'). Use Update IA.',
+  staleNews:'The Internet Adapter has not loaded the latest news or channels. Use Restart when the NABU is not in use.',
+  noNews:'Could not get the news. The Pi needs an Internet connection.',
+  emptyNews:'No news published.'
 };
-let view='screen', active='', printer=true, printsKey='', off=false;
+const BUILD='@@BUILD@@', TITLE=document.title;
+let view='screen', active='', printer=true, printsKey='', newsKey='', zoom=false;
+// lost: cannot reach the Pi; quiet: do not poll until then (shutdown in progress)
+let lost=false, fails=0, lastOk=Date.now(), quiet=0;
 const $=id=>document.getElementById(id);
-async function api(p,opt){const r=await fetch(p,opt);return r.json();}
+// ms: time limit for the request; without it, waits as long as needed
+async function api(p,opt,ms){
+  const c=new AbortController(), t=ms?setTimeout(()=>c.abort(),ms):0;
+  try{const r=await fetch(p,Object.assign({signal:c.signal},opt)); return await r.json();}
+  finally{clearTimeout(t);}
+}
 function set(id,cls,txt){const e=$(id);e.className='item '+cls;e.querySelector('b span:last-child').textContent=txt;}
 function msg(t){$('msg').textContent=t||'';}
 function post(a,extra){return api('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({action:a},extra||{}))});}
+function ago(s){return s<90?s+' s':s<5400?Math.round(s/60)+' min':Math.round(s/3600)+' h';}
+function tick(){
+  if(!lost) return;
+  const halt=Date.now()<quiet, t=halt?T.halting:T.lost;
+  if($('lost-t').textContent!==t) $('lost-t').textContent=t;
+  $('lost-s').textContent=halt?T.haltHint:T.lostFor(ago(Math.round((Date.now()-lastOk)/1000)));
+}
+function setLost(v){
+  if(v===lost) return;
+  lost=v;
+  document.body.classList.toggle('lost',v);
+  document.title=(v?'⚠ '+T.lostTitle+' · ':'')+TITLE;
+  for(const c of document.querySelectorAll('.card')) c.inert=v;
+  if(v){ for(const id of ['s-svc','s-tty','s-temp','s-pwr']) set(id,'','—'); msg(''); tick(); }
+}
 async function refresh(){
-  if(off) return;
-  try{
-    const s=await api('/api/status'); active=s.active; printer=s.printer;
-    set('s-svc', s.active==='active'?'ok':(s.active==='activating'?'warn':'bad'), T[s.active]||s.active);
-    set('s-tty', s.ttys.length?'ok':'bad', s.ttys.length?s.ttys.join(', ').replace(/\/dev\//g,''):T.notDetected);
-    if(s.temp){const t=parseFloat(s.temp);set('s-temp',t<70?'ok':(t<80?'warn':'bad'),s.temp.replace("'C"," °C"));}
-    else set('s-temp','','—');
-    if(s.throttled) set('s-pwr', s.throttled==='0x0'?'ok':'bad', s.throttled==='0x0'?T.powerOk:T.powerBad+' ('+s.throttled+')');
-    else set('s-pwr','','—');
-    $('b-toggle').textContent = s.active==='active'?T.stop:T.start;
-    $('b-upd').disabled = s.update==='running';
-    if(s.update==='running') msg(T.updating);
-  }catch(e){msg(T.noPi);}
+  if(Date.now()<quiet) return;
+  let s;
+  try{ s=await api('/api/status',null,5000); }
+  catch(e){ if(++fails>=2) setLost(true); else setTimeout(refresh,2500); return; }
+  if(s.build&&s.build!==BUILD){ location.reload(); return; }
+  const back=lost;
+  fails=0; lastOk=Date.now(); setLost(false);
+  active=s.active; printer=s.printer;
+  set('s-svc', s.active==='active'?'ok':(s.active==='activating'?'warn':'bad'), T[s.active]||s.active);
+  set('s-tty', s.ttys.length?'ok':'bad', s.ttys.length?s.ttys.join(', ').replace(/\/dev\//g,''):T.notDetected);
+  if(s.temp){const t=parseFloat(s.temp);set('s-temp',t<70?'ok':(t<80?'warn':'bad'),s.temp.replace("'C"," °C"));}
+  else set('s-temp','','—');
+  if(s.throttled) set('s-pwr', s.throttled==='0x0'?'ok':'bad', s.throttled==='0x0'?T.powerOk:T.powerBad+' ('+s.throttled+')');
+  else set('s-pwr','','—');
+  $('b-toggle').textContent = s.active==='active'?T.stop:T.start;
+  $('b-upd').disabled = s.update==='running';
+  if(s.update==='running') msg(T.updating);
   loadPrints();
+  if(back){ loadView(); loadNews(); }
 }
 async function act(a,t){
   msg(t);
   try{const r=await post(a); msg(r.ok?T.done:T.error+r.out);}catch(e){msg(T.noConn);}
   setTimeout(()=>{refresh();loadView();},1500);
+  setTimeout(loadNews,20000);
 }
 function toggle(){ active==='active' ? (confirm(T.confirmStop)&&act('stop',T.stopping)) : act('start',T.starting); }
 async function backup(){
@@ -1725,25 +2094,45 @@ async function update(){
   await post('update');
   $('b-upd').disabled=true; msg(T.updating);
   const poll=setInterval(async()=>{
-    const u=await api('/api/update');
+    let u;
+    try{ u=await api('/api/update',null,8000); }catch(e){ return; }
     if(u.state!=='running'){clearInterval(poll);
       msg(u.state==='ok'?T.updateOk:T.updateFail);
-      $('view').textContent=u.out; refresh();}
+      $('view').textContent=u.out; fit(); refresh(); setTimeout(loadNews,20000);}
   },3000);
 }
 async function poweroff(){
   if(!confirm(T.confirmOff))return;
-  try{const r=await post('poweroff'); if(r.ok){off=true; msg(T.poweringOff);} else msg(T.error+r.out);}
+  try{const r=await post('poweroff'); if(r.ok){quiet=Date.now()+30000; setLost(true);} else msg(T.error+r.out);}
   catch(e){msg(T.noConn);}
 }
 function tab(v){view=v;$('t-screen').classList.toggle('on',v==='screen');$('t-log').classList.toggle('on',v==='log');loadView();}
 async function loadView(){
-  try{const r=await api(view==='screen'?'/api/screen':'/api/log');$('view').textContent=r.text||T.empty;}
-  catch(e){$('view').textContent=T.loadFail;}
+  const v=view; let text;
+  try{const r=await api(v==='screen'?'/api/screen':'/api/log',null,10000); text=r.text||T.empty;}
+  catch(e){text=T.loadFail;}
+  if(v!==view) return;
+  $('view').textContent=text; fit();
 }
+function fit(){
+  const v=$('view');
+  v.style.fontSize=''; v.classList.remove('zoom'); v.classList.add('fit');
+  v.classList.toggle('wrap',view!=='screen');
+  const over=view==='screen'&&v.scrollWidth>v.clientWidth;
+  if(!over) zoom=false;
+  if(over&&!zoom){
+    let size=Math.floor(12*(v.clientWidth-20)/(v.scrollWidth-20)*10)/10;
+    v.style.fontSize=size+'px';
+    while(v.scrollWidth>v.clientWidth&&size>3){size=Math.round(size*10-1)/10; v.style.fontSize=size+'px';}
+  }
+  v.classList.toggle('fit',over&&!zoom); v.classList.toggle('zoom',over&&zoom);
+  $('v-hint').textContent=over?(zoom?T.tapFit:T.tapZoom):'';
+}
+$('view').onclick=()=>{ if(view!=='screen'||String(getSelection())) return; zoom=!zoom; fit(); };
+addEventListener('resize',fit);
 async function loadPrints(){
   let r;
-  try{ r=await api('/api/prints'); }catch(e){ return; }
+  try{ r=await api('/api/prints',null,10000); }catch(e){ return; }
   const key=JSON.stringify(r)+printer;
   if(key===printsKey) return;
   printsKey=key;
@@ -1789,9 +2178,36 @@ async function setOpt(){
   catch(e){pnote(T.noConn,true);}
   printsKey=''; loadPrints();
 }
-pnote(); refresh(); loadView();
+async function loadNews(){
+  if(lost) return;
+  let r;
+  try{ r=await api('/api/news',null,45000); }catch(e){ return; }
+  const key=JSON.stringify(r);
+  if(key===newsKey) return;
+  newsKey=key;
+  const notes=$('notes'); notes.textContent='';
+  const warn=t=>{const li=document.createElement('li');li.textContent=t;notes.appendChild(li);};
+  if(r.update) warn(T.newIA(r.latest,r.installed));
+  if(r.stale) warn(T.staleNews);
+  const ul=$('news'); ul.textContent='';
+  if(!r.ok || !r.items.length){
+    const li=document.createElement('li'); li.className='empty';
+    li.textContent=r.ok?T.emptyNews:T.noNews; ul.appendChild(li); return;
+  }
+  for(const n of r.items){
+    const li=document.createElement('li'), d=document.createElement('details'), s=document.createElement('summary'),
+          w=document.createElement('small'), p=document.createElement('p');
+    w.textContent=n.date; s.appendChild(w); s.appendChild(document.createTextNode(n.title));
+    p.textContent=n.text; d.appendChild(s); d.appendChild(p); li.appendChild(d); ul.appendChild(li);
+  }
+}
+pnote(); refresh(); loadView(); loadNews();
+setInterval(loadNews,600000);
 setInterval(refresh,10000);
-setInterval(()=>{ if(view==='screen'&&!off) loadView(); },5000);
+setInterval(tick,1000);
+setInterval(()=>{ if(view==='screen'&&!lost) loadView(); },5000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ refresh(); if(view==='screen'&&!lost) loadView(); } });
+addEventListener('online',refresh);
 </script></body></html>"""
 
 
@@ -1808,6 +2224,9 @@ def footer():
 
 
 PAGE = PAGE.replace("@@FOOTER@@", footer())
+# Identifies this version of the page: if it changes, open panels reload
+BUILD = hashlib.sha256(PAGE.encode()).hexdigest()[:12]
+PAGE = PAGE.replace("@@BUILD@@", BUILD)
 
 
 if __name__ == "__main__":
@@ -1851,9 +2270,80 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+echo "==> Creating the nabu-telnet systemd service (local telnet)"
+TELNETD=/usr/sbin/telnetd
+for p in /usr/sbin/telnetd /usr/sbin/in.telnetd /usr/libexec/telnetd; do
+  if [[ -x "$p" ]]; then TELNETD="$p"; break; fi
+done
+sudo tee /etc/systemd/system/nabu-telnet.socket >/dev/null <<EOF
+[Unit]
+Description=Local telnet for the NABU server (127.0.0.1 only)
+
+[Socket]
+ListenStream=127.0.0.1:23
+Accept=yes
+
+[Install]
+WantedBy=sockets.target
+EOF
+sudo tee /etc/systemd/system/nabu-telnet@.service >/dev/null <<EOF
+[Unit]
+Description=Local telnet session on the NABU server
+
+[Service]
+ExecStart=$TELNETD
+StandardInput=socket
+EOF
+
+# NABU terminals do not describe themselves properly when they connect: the
+# session is adjusted at login. Cloud CP/M's telnet command claims to be "ansi"
+# but sends the arrow keys with VT52 codes; NABU Term80 reports no type or size.
+sudo tee /etc/profile.d/nabu-telnet.sh >/dev/null <<'EOF'
+# NABU Setup: adjusts the sessions of the local telnet, which are used from
+# NABU terminals. It only acts when the parent process is login and the
+# terminal is a pts, that is, in a telnet session. SSH sessions and the Pi's
+# console sessions do not change.
+case "$(tty 2>/dev/null)" in
+  /dev/pts/*)
+    if [ "$(ps -o comm= -p "$PPID" 2>/dev/null)" = login ]; then
+      case "${TERM:-}" in
+        network)
+          # NABU Term80 reports neither its type nor its size
+          TERM=vt100; export TERM
+          if [ "$(stty size 2>/dev/null)" = "0 0" ]; then stty cols 80 rows 24; fi
+          ;;
+        ansi)
+          # Cloud CP/M's telnet command sends the arrow keys the way a VT52 does
+          if [ -e /etc/terminfo/n/nabu-telnet ]; then TERM=nabu-telnet; export TERM; fi
+          ;;
+      esac
+    fi
+    ;;
+esac
+EOF
+# Terminal description for those sessions: ANSI screen and VT52 arrow keys
+TI="$(mktemp)"
+cat > "$TI" <<'EOF'
+nabu-telnet|NABU telnet client of Cloud CP/M (ANSI screen, VT52 arrow keys),
+    kcuu1=\EA, kcud1=\EB, kcuf1=\EC, kcub1=\ED,
+    use=ansi,
+EOF
+sudo tic -x -o /etc/terminfo "$TI" 2>/dev/null \
+  || echo "Could not install the nabu-telnet terminal description (the arrow keys will not work)"
+rm -f "$TI"
+
 sudo systemctl daemon-reload
 sudo systemctl enable nabu-ia nabu-web nabu-print
 sudo systemctl restart nabu-web nabu-print
+# The local telnet is only turned on or off the one time the question is asked
+if [[ $ASK_TELNET -eq 1 ]]; then
+  if [[ $TELNET_ON -eq 1 ]]; then
+    sudo systemctl enable -q --now nabu-telnet.socket \
+      || echo "Could not turn the local telnet on. Try later: nabu telnet on"
+  else
+    sudo systemctl disable -q --now nabu-telnet.socket 2>/dev/null || true
+  fi
+fi
 
 IP="$(hostname -I | awk '{print $1}')"
 echo
@@ -1872,5 +2362,7 @@ echo "  - Web panel:  http://$(hostname).local   or   http://$IP"
 echo "                user: nabu"
 echo "  - Printer:    whatever you print from Cloud CP/M (LST:) shows up as a PDF"
 echo "                on the panel and in $PRINT_DIR"
+echo "  - Telnet:     from a NABU terminal, to 127.0.0.1 port 23"
+echo "                (nabu telnet shows whether it is on; on or off changes it)"
 echo "  - Help:       nabu help"
 echo "  - Manual:     $NABU_SETUP_REPO"
