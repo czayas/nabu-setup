@@ -2295,6 +2295,43 @@ ExecStart=$TELNETD
 StandardInput=socket
 EOF
 
+# NABU terminals do not describe themselves properly when they connect: the
+# session is adjusted at login. Cloud CP/M's telnet command claims to be "ansi"
+# but sends the arrow keys with VT52 codes; NABU Term80 reports no type or size.
+sudo tee /etc/profile.d/nabu-telnet.sh >/dev/null <<'EOF'
+# NABU Setup: adjusts the sessions of the local telnet, which are used from
+# NABU terminals. It only acts when the parent process is login and the
+# terminal is a pts, that is, in a telnet session. SSH sessions and the Pi's
+# console sessions do not change.
+case "$(tty 2>/dev/null)" in
+  /dev/pts/*)
+    if [ "$(ps -o comm= -p "$PPID" 2>/dev/null)" = login ]; then
+      case "${TERM:-}" in
+        network)
+          # NABU Term80 reports neither its type nor its size
+          TERM=vt100; export TERM
+          if [ "$(stty size 2>/dev/null)" = "0 0" ]; then stty cols 80 rows 24; fi
+          ;;
+        ansi)
+          # Cloud CP/M's telnet command sends the arrow keys the way a VT52 does
+          if [ -e /etc/terminfo/n/nabu-telnet ]; then TERM=nabu-telnet; export TERM; fi
+          ;;
+      esac
+    fi
+    ;;
+esac
+EOF
+# Terminal description for those sessions: ANSI screen and VT52 arrow keys
+TI="$(mktemp)"
+cat > "$TI" <<'EOF'
+nabu-telnet|NABU telnet client of Cloud CP/M (ANSI screen, VT52 arrow keys),
+    kcuu1=\EA, kcud1=\EB, kcuf1=\EC, kcub1=\ED,
+    use=ansi,
+EOF
+sudo tic -x -o /etc/terminfo "$TI" 2>/dev/null \
+  || echo "Could not install the nabu-telnet terminal description (the arrow keys will not work)"
+rm -f "$TI"
+
 sudo systemctl daemon-reload
 sudo systemctl enable nabu-ia nabu-web nabu-print
 sudo systemctl restart nabu-web nabu-print

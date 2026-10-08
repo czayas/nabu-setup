@@ -856,22 +856,42 @@ La primera vez que se ejecuta, el script de instalación pregunta si quieres act
 
 ## Conectarse desde la NABU
 
-1. Carga un programa de terminal. En el menú de la NABU, **NABU Term80** está en el grupo *Utilities*. Trabaja a 80 columnas y necesita una NABU con la placa F18A; **NABU Term** es la versión de 40 columnas. Desde Cloud CP/M, los mismos programas están en la unidad `N:`, área de usuario 2: `NTERM80` y `NTERM`.
-2. Como servidor escribe `127.0.0.1` y como puerto, `23`.
-3. Inicia sesión con tu usuario de la Pi y su contraseña.
-4. Ajusta la sesión al tamaño de la pantalla:
+La forma más cómoda es el comando `telnet` de Cloud CP/M:
 
-```
-stty cols 80 rows 24
-```
+1. En el indicador `A:0>`, escribe `telnet 127.0.0.1`.
+2. Inicia sesión con tu usuario de la Pi y su contraseña.
+3. Para terminar, cierra la sesión con `exit` o corta la conexión con Ctrl-].
 
-Con un programa de 40 columnas, usa `cols 40`.
+Ese programa le informa a la Pi el tipo de terminal y el tamaño de la pantalla, así que no hay nada que ajustar.
+
+También sirve **NABU Term80**, que está en el grupo *Utilities* del menú de la NABU y necesita una NABU con la placa F18A. Como servidor se escribe `127.0.0.1` y como puerto, `23`. Ese programa no informa ni el tipo de terminal ni el tamaño: NABU Setup ajusta esas sesiones al entrar, a un terminal `vt100` de 80 columnas por 24 líneas.
+
+## Teclas
+
+Con el comando `telnet` de Cloud CP/M, las flechas del teclado sirven en la línea de comandos y en programas de pantalla completa como `nano`. Ese programa envía las flechas con los códigos de un terminal VT52 aunque se presenta como `ansi`; NABU Setup instala una descripción de terminal propia, `nabu-telnet`, para que Linux las reconozca.
+
+Si en algún programa las flechas no responden, estas combinaciones hacen lo mismo:
+
+| Para | En la línea de comandos | En `nano` |
+|---|---|---|
+| Comando anterior o siguiente | Ctrl-P, Ctrl-N | |
+| Subir o bajar una línea | | Ctrl-P, Ctrl-N |
+| Izquierda o derecha | Ctrl-B, Ctrl-F | Ctrl-B, Ctrl-F |
+| Inicio o fin de línea | Ctrl-A, Ctrl-E | Ctrl-A, Ctrl-E |
+| Página anterior o siguiente | | Ctrl-Y, Ctrl-V |
+
+En `less` y en `man`, `j` y `k` bajan y suben una línea, la barra espaciadora avanza una página y `q` sale.
+
+## Limitaciones
+
+- **El cursor no se ve.** Ni el comando `telnet` ni NABU Term80 dibujan el cursor en la sesión. No se puede corregir desde la Pi.
+- **Faltan teclas.** El teclado de la NABU no tiene la barra invertida, la barra vertical ni la tilde (`~`), así que los comandos que las llevan no se pueden escribir.
+- **Teclas reservadas.** Ctrl-] corta la conexión en los dos programas. En NABU Term80, Ctrl-E y Ctrl-T manejan el eco y el color, y no llegan a la Pi.
 
 ## Cuidados
 
 - **No detengas ni reinicies el IA desde esa sesión.** La conexión pasa por el IA: `nabu stop`, `nabu restart` y `nabu update` la cortan.
 - **La contraseña viaja sin cifrar** por el cable entre la NABU y la Pi. No sale a la red.
-- **El cursor no se ve.** En las pruebas hechas con NABU Term80 y con el terminal de CP/M, la sesión funciona pero el cursor no aparece.
 
 # Actualizaciones
 
@@ -951,6 +971,8 @@ Si el problema es del propio Internet Adapter o de un programa de la NABU, los l
 | `/etc/nabu-ia.conf` | Rutas, versión y fecha de NABU Setup |
 | `/etc/nabu-web.conf` | Puerto del panel y hash de la contraseña |
 | `/etc/sudoers.d/nabu` | Permiso para controlar el servicio del IA y apagar la Pi sin contraseña |
+| `/etc/profile.d/nabu-telnet.sh` | Ajuste de las sesiones del telnet local al entrar |
+| `/etc/terminfo/n/nabu-telnet` | Descripción de terminal del comando `telnet` de Cloud CP/M |
 
 ## Servicios
 
@@ -985,6 +1007,7 @@ Estos comandos quitan todo lo que instaló NABU Setup y dejan intactos tus datos
 sudo systemctl disable --now nabu-ia nabu-web nabu-print nabu-telnet.socket
 sudo rm /etc/systemd/system/nabu-ia.service /etc/systemd/system/nabu-web.service
 sudo rm /etc/systemd/system/nabu-telnet.socket /etc/systemd/system/nabu-telnet@.service
+sudo rm /etc/profile.d/nabu-telnet.sh /etc/terminfo/n/nabu-telnet
 sudo rm /etc/systemd/system/nabu-print.service /etc/sudoers.d/nabu
 sudo rm /etc/nabu-ia.conf /etc/nabu-web.conf /usr/local/bin/nabu
 sudo rm -r /usr/local/lib/nabu

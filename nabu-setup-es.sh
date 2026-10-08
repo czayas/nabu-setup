@@ -2295,6 +2295,43 @@ ExecStart=$TELNETD
 StandardInput=socket
 EOF
 
+# Las terminales de la NABU no se describen bien al conectarse: la sesión se
+# ajusta al entrar. El comando telnet de Cloud CP/M dice ser "ansi" pero manda
+# las flechas con los códigos de un VT52; NABU Term80 no informa tipo ni tamaño.
+sudo tee /etc/profile.d/nabu-telnet.sh >/dev/null <<'EOF'
+# NABU Setup: ajusta las sesiones del telnet local, que se usan desde las
+# terminales de la NABU. Solo actúa cuando el proceso padre es login y la
+# terminal es una pts, es decir, en una sesión de telnet. Las sesiones de SSH
+# y las de la consola de la Pi no cambian.
+case "$(tty 2>/dev/null)" in
+  /dev/pts/*)
+    if [ "$(ps -o comm= -p "$PPID" 2>/dev/null)" = login ]; then
+      case "${TERM:-}" in
+        network)
+          # NABU Term80 no informa su tipo ni su tamaño
+          TERM=vt100; export TERM
+          if [ "$(stty size 2>/dev/null)" = "0 0" ]; then stty cols 80 rows 24; fi
+          ;;
+        ansi)
+          # el comando telnet de Cloud CP/M manda las flechas como un VT52
+          if [ -e /etc/terminfo/n/nabu-telnet ]; then TERM=nabu-telnet; export TERM; fi
+          ;;
+      esac
+    fi
+    ;;
+esac
+EOF
+# Descripción de terminal para esas sesiones: pantalla ANSI y flechas de VT52
+TI="$(mktemp)"
+cat > "$TI" <<'EOF'
+nabu-telnet|NABU telnet client of Cloud CP/M (ANSI screen, VT52 arrow keys),
+    kcuu1=\EA, kcud1=\EB, kcuf1=\EC, kcub1=\ED,
+    use=ansi,
+EOF
+sudo tic -x -o /etc/terminfo "$TI" 2>/dev/null \
+  || echo "No se pudo instalar la descripción de terminal nabu-telnet (las flechas no funcionarán)"
+rm -f "$TI"
+
 sudo systemctl daemon-reload
 sudo systemctl enable nabu-ia nabu-web nabu-print
 sudo systemctl restart nabu-web nabu-print

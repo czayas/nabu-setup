@@ -856,22 +856,42 @@ The first time it runs, the installation script asks whether you want to turn th
 
 ## Connecting from the NABU
 
-1. Load a terminal program. On the NABU menu, **NABU Term80** is in the *Utilities* group. It works at 80 columns and needs a NABU with the F18A board; **NABU Term** is the 40-column version. From Cloud CP/M, the same programs are on drive `N:`, user area 2: `NTERM80` and `NTERM`.
-2. Enter `127.0.0.1` as the host and `23` as the port.
-3. Log in with your user on the Pi and its password.
-4. Fit the session to the size of the screen:
+The most convenient way is Cloud CP/M's `telnet` command:
 
-```
-stty cols 80 rows 24
-```
+1. At the `A:0>` prompt, type `telnet 127.0.0.1`.
+2. Log in with your user on the Pi and its password.
+3. When you are done, close the session with `exit` or drop the connection with Ctrl-].
 
-With a 40-column program, use `cols 40`.
+That program tells the Pi its terminal type and screen size, so there is nothing to adjust.
+
+**NABU Term80** works too. It is in the *Utilities* group of the NABU menu and needs a NABU with the F18A board. Enter `127.0.0.1` as the host and `23` as the port. That program reports neither its terminal type nor its size: NABU Setup adjusts those sessions at login, to a `vt100` terminal of 80 columns by 24 lines.
+
+## Keys
+
+With Cloud CP/M's `telnet` command, the arrow keys work on the command line and in full-screen programs such as `nano`. That program sends the arrow keys with the codes of a VT52 terminal even though it presents itself as `ansi`; NABU Setup installs a terminal description of its own, `nabu-telnet`, so that Linux recognizes them.
+
+If the arrow keys do not respond in some program, these combinations do the same:
+
+| To | On the command line | In `nano` |
+|---|---|---|
+| Recall the previous or next command | Ctrl-P, Ctrl-N | |
+| Move up or down one line | | Ctrl-P, Ctrl-N |
+| Move left or right | Ctrl-B, Ctrl-F | Ctrl-B, Ctrl-F |
+| Go to the start or end of the line | Ctrl-A, Ctrl-E | Ctrl-A, Ctrl-E |
+| Go to the previous or next page | | Ctrl-Y, Ctrl-V |
+
+In `less` and `man`, `j` and `k` move down and up one line, the space bar moves forward one page, and `q` quits.
+
+## Limitations
+
+- **The cursor does not show.** Neither the `telnet` command nor NABU Term80 draws the cursor in the session. This cannot be fixed from the Pi.
+- **Some keys are missing.** The NABU keyboard has no backslash, vertical bar, or tilde (`~`), so commands that need them cannot be typed.
+- **Reserved keys.** Ctrl-] drops the connection in both programs. In NABU Term80, Ctrl-E and Ctrl-T handle echo and color, and do not reach the Pi.
 
 ## Things to keep in mind
 
 - **Do not stop or restart the IA from that session.** The connection goes through the IA: `nabu stop`, `nabu restart`, and `nabu update` cut it off.
 - **The password travels unencrypted** over the cable between the NABU and the Pi. It does not go out on the network.
-- **The cursor does not show.** In the tests done with NABU Term80 and with the CP/M terminal, the session works but the cursor does not appear.
 
 # Updates
 
@@ -951,6 +971,8 @@ If the problem lies with the Internet Adapter itself or with a NABU program, the
 | `/etc/nabu-ia.conf` | Paths, plus the NABU Setup version and date |
 | `/etc/nabu-web.conf` | Panel port and password hash |
 | `/etc/sudoers.d/nabu` | Permission to control the IA service and shut down the Pi without a password |
+| `/etc/profile.d/nabu-telnet.sh` | Adjustment of local telnet sessions at login |
+| `/etc/terminfo/n/nabu-telnet` | Terminal description for Cloud CP/M's `telnet` command |
 
 ## Services
 
@@ -985,6 +1007,7 @@ These commands remove everything NABU Setup installed and leave your data untouc
 sudo systemctl disable --now nabu-ia nabu-web nabu-print nabu-telnet.socket
 sudo rm /etc/systemd/system/nabu-ia.service /etc/systemd/system/nabu-web.service
 sudo rm /etc/systemd/system/nabu-telnet.socket /etc/systemd/system/nabu-telnet@.service
+sudo rm /etc/profile.d/nabu-telnet.sh /etc/terminfo/n/nabu-telnet
 sudo rm /etc/systemd/system/nabu-print.service /etc/sudoers.d/nabu
 sudo rm /etc/nabu-ia.conf /etc/nabu-web.conf /usr/local/bin/nabu
 sudo rm -r /usr/local/lib/nabu

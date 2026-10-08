@@ -13,7 +13,7 @@ NABU Setup and its manual are versioned separately. The script uses version numb
 - On the panel, the IA screen fits the width on its own and shows in full, with no horizontal scroll bar; tap it to enlarge it. Long log lines wrap onto the next line.
 - The panel shows a visible banner when it cannot reach the Pi, turns the indicators gray instead of showing old data, and recovers on its own when the Pi is back, also after **Shut down the Pi**. It refreshes right away when you return to its tab and reloads on its own when a new release is installed.
 - The panel has its own icon and name for adding it to a phone's home screen. With a `~/nabu/icon.png` file, your own icon is used.
-- New local telnet, for logging in to the Pi from a terminal program on the NABU. It only accepts connections from the Pi itself (`127.0.0.1`). The installer asks only once whether to turn it on, and the new `nabu telnet` command shows it, turns it on (`on`), and turns it off (`off`).
+- New local telnet, for logging in to the Pi from a terminal program on the NABU. It only accepts connections from the Pi itself (`127.0.0.1`). The installer asks only once whether to turn it on, and the new `nabu telnet` command shows it, turns it on (`on`), and turns it off (`off`). Sessions are adjusted on their own at login: the arrow keys work with Cloud CP/M's `telnet` command, and NABU Term80 sessions become a `vt100` terminal of 80 by 24.
 - The repository now includes `tools/lq-fonts.py`, the program that builds the virtual printer's letter-quality typefaces.
 - Removed the automatic move of backups from `~/backups` to `~/nabu/backups`. Anyone updating from 1.2.0 or earlier can move them by hand.
 
