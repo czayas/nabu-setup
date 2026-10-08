@@ -4,7 +4,7 @@
 
 NABU Setup is an installation script that turns a Raspberry Pi into a small server for the [NABU Personal Computer](https://en.wikipedia.org/wiki/NABU_Network). It downloads the official [NABU Internet Adapter](https://nabu.ca/downloads-nabu-internet-adapter), runs it as a service, and adds the tools to manage it from a terminal or a phone.
 
-Current version: **1.4.0**, released on 2026-10-07. See the [changelog](CHANGELOG.md).
+Current version: **1.4.0**, released on 2026-10-08. See the [changelog](CHANGELOG.md).
 
 ![The parts of a NABU server installed with NABU Setup](docs/img/architecture-en.png)
 

@@ -4,7 +4,7 @@
 
 NABU Setup y su manual llevan numeraciones separadas. El script usa números de versión (como 1.2.0); el manual usa números de revisión e indica a qué versión del script corresponde.
 
-## NABU Setup 1.4.0 (2026-10-07)
+## NABU Setup 1.4.0 (2026-10-08)
 
 - El Internet Adapter arranca sin esperar a que la Pi tenga red, para que la NABU pueda cargar antes. En una Raspberry Pi 3 Model A+, el servicio pasó de iniciarse a unos 31 segundos del encendido a hacerlo a unos 12. En una instalación existente, el cambio vale desde el siguiente encendido de la Pi.
 - Antes de iniciar el IA, el servicio espera hasta diez segundos a que aparezca el adaptador USB a RS-422.
@@ -53,7 +53,7 @@ Primera versión publicada.
 
 | Revisión | Fecha | NABU Setup | Cambios |
 |---|---|---|---|
-| 5 | 2026-10-07 | 1.4.0 | Arranque del IA sin esperar a la red; en el panel web, novedades, avisos, pantalla ajustada al ancho, aviso de conexión perdida e ícono para el teléfono; telnet local |
+| 5 | 2026-10-08 | 1.4.0 | Arranque del IA sin esperar a la red; en el panel web, novedades, avisos, pantalla ajustada al ancho, aviso de conexión perdida e ícono para el teléfono; telnet local |
 | 4 | 2026-10-05 | 1.3.0 | Acentos y eñe, impresión desde WordStar, letra y papel, borrado y reimpresión, carpeta de backups |
 | 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` |
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: `nabu poweroff` y el botón del panel |

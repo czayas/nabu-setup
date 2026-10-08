@@ -7,9 +7,9 @@ babel: "spanish,es-tabla,es-noshorthands,es-nolayout"
 papersize: a4
 publisher: "Retro Informática Paraguay"
 script-version: "1.4.0"
-script-date: "2026-10-07"
+script-date: "2026-10-08"
 manual-revision: "5"
-date: "7 de octubre de 2026"
+date: "8 de octubre de 2026"
 repo: "https://github.com/czayas/nabu-setup"
 channel: "https://www.youtube.com/@retroinfopy"
 footer: "NABU Setup 1.4.0 · Manual, revisión 5"
@@ -218,7 +218,7 @@ Después pregunta si quieres activar el **telnet local**, que permite entrar a l
 A partir de ahí trabaja solo. En pantalla verás algo así:
 
 ```
-NABU Setup 1.4.0 (2026-10-07)
+NABU Setup 1.4.0 (2026-10-08)
 
 Contraseña para el panel web (usuario: nabu):
 Repítela:
@@ -408,8 +408,8 @@ Descarga del repositorio la última versión publicada de NABU Setup, en el mism
 
 ```
 Descargando https://raw.githubusercontent.com/czayas/nabu-setup/main/nabu-setup-es.sh
-Instalada: NABU Setup 1.4.0 (2026-10-07)
-Publicada: NABU Setup 1.4.0 (2026-10-07)
+Instalada: NABU Setup 1.4.0 (2026-10-08)
+Publicada: NABU Setup 1.4.0 (2026-10-08)
 Ya tienes la última versión. ¿Instalarla de nuevo? [s/N]
 ```
 
@@ -446,7 +446,7 @@ nabu version
 ```
 
 ```
-NABU Setup 1.4.0 (2026-10-07)
+NABU Setup 1.4.0 (2026-10-08)
 https://github.com/czayas/nabu-setup
 ```
 
@@ -1066,4 +1066,4 @@ La licencia cubre solamente NABU Setup. El NABU Internet Adapter es un programa 
 | 2 | 2026-10-04 | 1.1.0 | Apagado seguro: comando `nabu poweroff` y botón **Apagar la Pi** en el panel web |
 | 3 | 2026-10-04 | 1.2.0 | Comando `nabu setup` para actualizar NABU Setup |
 | 4 | 2026-10-05 | 1.3.0 | Letras acentuadas y eñe en la impresora virtual, impresión desde WordStar, elección de letra y papel, borrado y reimpresión desde el panel web, y backups en `~/nabu/backups` |
-| 5 | 2026-10-07 | 1.4.0 | Arranque del IA sin esperar a la red; en el panel web, novedades de nabu.ca, avisos, pantalla del IA ajustada al ancho, aviso de conexión perdida e ícono para el teléfono; telnet local |
+| 5 | 2026-10-08 | 1.4.0 | Arranque del IA sin esperar a la red; en el panel web, novedades de nabu.ca, avisos, pantalla del IA ajustada al ancho, aviso de conexión perdida e ícono para el teléfono; telnet local |

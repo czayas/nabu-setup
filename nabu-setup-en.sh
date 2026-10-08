@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NABU Setup — a minimal NABU server for Raspberry Pi (Raspberry Pi OS Lite)
-# Version 1.4.0 · released on 2026-10-07 · English edition
+# Version 1.4.0 · released on 2026-10-08 · English edition
 #
 # Retro Informática Paraguay — https://www.youtube.com/@retroinfopy
 # Repository and user manual: https://github.com/czayas/nabu-setup
@@ -33,7 +33,7 @@
 set -euo pipefail
 
 NABU_SETUP_VERSION="1.4.0"
-NABU_SETUP_DATE="2026-10-07"
+NABU_SETUP_DATE="2026-10-08"
 NABU_SETUP_LANG="en"
 NABU_SETUP_REPO="https://github.com/czayas/nabu-setup"
 

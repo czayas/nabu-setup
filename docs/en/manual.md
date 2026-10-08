@@ -7,9 +7,9 @@ babel: "american"
 papersize: letter
 publisher: "Retro Informática Paraguay"
 script-version: "1.4.0"
-script-date: "2026-10-07"
+script-date: "2026-10-08"
 manual-revision: "5"
-date: "October 7, 2026"
+date: "October 8, 2026"
 repo: "https://github.com/czayas/nabu-setup"
 channel: "https://www.youtube.com/@retroinfopy"
 footer: "NABU Setup 1.4.0 · Manual, revision 5"
@@ -218,7 +218,7 @@ Then it asks whether you want to turn on the **local telnet**, which lets you lo
 From there it works on its own. You will see something like this:
 
 ```
-NABU Setup 1.4.0 (2026-10-07)
+NABU Setup 1.4.0 (2026-10-08)
 
 Password for the web panel (user: nabu):
 Type it again:
@@ -408,8 +408,8 @@ It downloads the latest published NABU Setup release from the repository, in the
 
 ```
 Downloading https://raw.githubusercontent.com/czayas/nabu-setup/main/nabu-setup-en.sh
-Installed: NABU Setup 1.4.0 (2026-10-07)
-Published: NABU Setup 1.4.0 (2026-10-07)
+Installed: NABU Setup 1.4.0 (2026-10-08)
+Published: NABU Setup 1.4.0 (2026-10-08)
 You already have the latest version. Install it again? [y/N]
 ```
 
@@ -446,7 +446,7 @@ nabu version
 ```
 
 ```
-NABU Setup 1.4.0 (2026-10-07)
+NABU Setup 1.4.0 (2026-10-08)
 https://github.com/czayas/nabu-setup
 ```
 
@@ -1066,4 +1066,4 @@ The license covers NABU Setup only. The NABU Internet Adapter is a separate prog
 | 2 | 2026-10-04 | 1.1.0 | Safe shutdown: `nabu poweroff` command and **Shut down the Pi** button on the web panel |
 | 3 | 2026-10-04 | 1.2.0 | `nabu setup` command for updating NABU Setup |
 | 4 | 2026-10-05 | 1.3.0 | Accented letters on the virtual printer, printing from WordStar, choice of typeface and paper, deleting and redoing printouts from the web panel, and backups in `~/nabu/backups` |
-| 5 | 2026-10-07 | 1.4.0 | IA startup without waiting for the network; on the web panel, nabu.ca news, notices, the IA screen fitted to the width, a lost-connection notice, and an icon for the phone; local telnet |
+| 5 | 2026-10-08 | 1.4.0 | IA startup without waiting for the network; on the web panel, nabu.ca news, notices, the IA screen fitted to the width, a lost-connection notice, and an icon for the phone; local telnet |
